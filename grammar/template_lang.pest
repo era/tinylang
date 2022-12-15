@@ -1,5 +1,6 @@
-exp = { ASCII_DIGIT }
-dynamic = { "{%" ~ exp ~ "%}" }
-print = { "{{" ~ exp ~ "}}"}
+WHITESPACE = _{ " " | "\t" }
+exp = { ASCII_DIGIT* }
+dynamic = { "{%" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "%}" }
+print = { "{{" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "}}"}
 html = { ASCII }
 g = { (dynamic | print | html)* }
