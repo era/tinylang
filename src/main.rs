@@ -18,11 +18,10 @@ pub enum ParseError {
 pub fn eval(input: &str) -> Result<String, ParseError> {
     let pairs = parse(input)?.next().unwrap().into_inner();
     let mut output = String::new();
-
+    // println!("{:?}", pairs);
     for pair in pairs {
         let current_output = match pair.as_rule() {
-            //TODO allocating a string everytime (refact)
-            Rule::html => pair.as_str().into(),
+            Rule::html => pair.as_str().to_string(),
             Rule::print => visit_print(pair.into_inner())?,
             _ => todo!(),
         };
@@ -36,23 +35,55 @@ fn visit_print(node: Pairs<Rule>) -> Result<String, ParseError> {
     let mut result = String::new();
     for child in node {
         let child_result = match child.as_rule() {
-            Rule::exp => child.as_str(),
+            Rule::exp =>visit_exp(child.into_inner())?,
             _ => {
                 return Err(ParseError::InvalidNode(
                     format!("print statement does not accept {:?}", child).to_owned(),
                 ))
             }
         };
-        result.push_str(child_result);
+        result.push_str(&child_result);
     }
     Ok(result)
+}
+
+fn visit_exp(node: Pairs<Rule>) -> Result<String, ParseError> {
+    // println!("{:?}", node);
+    //TODO make it better
+    let first_child = node.into_iter().next().unwrap();
+    match first_child.as_rule() {
+        Rule::lang_types => visit_lang_types(first_child.into_inner()),
+        // Rule::op_add => visit_op_add(first_child.into_inner()),
+        //TODO Rule::op_add =>
+        _ => Err(ParseError::InvalidNode(format!("visit_exp was called with an invalid node {:?}", first_child)))
+    }
+}
+
+fn visit_op_add<'a>(node: Pairs<Rule>) -> Result<String, ParseError> {
+    //TODO next live
+    // first lhs
+    // second operation (two choices)
+    // third rhs
+    // TODO
+    todo!()
+}
+
+fn visit_lang_types<'a>(node: Pairs<Rule>) -> Result<String, ParseError> {
+    for child in node {
+        // we know for now that this resolves to a single child
+        return match child.as_rule() {
+            Rule::integer => Ok(child.as_str().to_string()),
+            _ => Err(ParseError::InvalidNode(format!("visit_lang_types was called with an invalid node {:?}", child)))
+        };
+    }
+    Err(ParseError::InvalidNode(format!("visit_lang_types was called with an empty node")))
 }
 
 pub fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
     // this is G which contains children which are
     // either html chars, print statments or dynamic statements
     TemplateLangParser::parse(Rule::g, input).map_err(|e| {
-        println!("{:?}", e);
+        // println!("{:?}", e);
         ParseError::Generic(e.to_string())
     })
 }

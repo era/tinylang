@@ -1,5 +1,10 @@
 WHITESPACE = _{ " " | "\t" }
-exp = { ASCII_DIGIT* }
+integer = { ASCII_DIGIT* }
+lang_types = { integer }
+op_increment = { "+" }
+op_decrement = { "-" }
+op_add = { lang_types ~ WHITESPACE* ~ (op_decrement | op_increment ) ~ WHITESPACE* ~ lang_types }
+exp = { op_add | lang_types }
 dynamic = { "{%" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "%}" }
 print = { "{{" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "}}"}
 html = { ASCII }
