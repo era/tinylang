@@ -1,5 +1,6 @@
 WHITESPACE = _{ " " | "\t" }
-integer = { ASCII_DIGIT* }
+NON_SILENT_WHITESPACE = { " " | "\t" }
+integer = @{ ASCII_DIGIT+ }
 lang_types = { integer }
 op_increment = { "+" }
 op_decrement = { "-" }
@@ -7,5 +8,5 @@ op_add = { lang_types ~ WHITESPACE* ~ (op_decrement | op_increment ) ~ WHITESPAC
 exp = { op_add | lang_types }
 dynamic = { "{%" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "%}" }
 print = { "{{" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "}}"}
-html = { ASCII }
+html = { NON_SILENT_WHITESPACE* ~ ASCII ~ NON_SILENT_WHITESPACE* }
 g = { (dynamic | print | html)* }

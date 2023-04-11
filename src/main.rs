@@ -18,7 +18,7 @@ pub enum ParseError {
 pub fn eval(input: &str) -> Result<String, ParseError> {
     let pairs = parse(input)?.next().unwrap().into_inner();
     let mut output = String::new();
-    // println!("{:?}", pairs);
+
     for pair in pairs {
         let current_output = match pair.as_rule() {
             Rule::html => pair.as_str().to_string(),
@@ -48,7 +48,6 @@ fn visit_print(node: Pairs<Rule>) -> Result<String, ParseError> {
 }
 
 fn visit_exp(node: Pairs<Rule>) -> Result<String, ParseError> {
-    // println!("{:?}", node);
     //TODO make it better
     let first_child = node.into_iter().next().unwrap();
     match first_child.as_rule() {
@@ -72,6 +71,7 @@ fn visit_lang_types<'a>(node: Pairs<Rule>) -> Result<String, ParseError> {
     for child in node {
         // we know for now that this resolves to a single child
         return match child.as_rule() {
+            //TODO actually return our own types, e.g. TinyLangTypes::Integer(i64)
             Rule::integer => Ok(child.as_str().to_string()),
             _ => Err(ParseError::InvalidNode(format!("visit_lang_types was called with an invalid node {:?}", child)))
         };
@@ -81,9 +81,8 @@ fn visit_lang_types<'a>(node: Pairs<Rule>) -> Result<String, ParseError> {
 
 pub fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
     // this is G which contains children which are
-    // either html chars, print statments or dynamic statements
+    // either html chars, print statements or dynamic statements
     TemplateLangParser::parse(Rule::g, input).map_err(|e| {
-        // println!("{:?}", e);
         ParseError::Generic(e.to_string())
     })
 }
@@ -104,6 +103,16 @@ mod test {
     fn test_empty_string() {
         let result = eval("").unwrap();
         assert_eq!("", result.as_str());
+    }
+    #[test]
+    fn test_html_with_spaces() {
+        let result = eval("something nice here").unwrap();
+        assert_eq!("something nice here", result.as_str());
+    }
+    #[test]
+    fn test_literal_print_stmt_with_html() {
+        let result = eval("the coolest number is {{ 12 }}").unwrap();
+        assert_eq!("the coolest number is 12", result.as_str());
     }
 
     #[test]
