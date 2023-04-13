@@ -11,6 +11,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 
+#[derive(Clone, Debug)]
+pub struct InvalidLangType;
+
 #[derive(Parser)]
 #[grammar = "../grammar/template_lang.pest"]
 struct TemplateLangParser;
@@ -18,21 +21,93 @@ struct TemplateLangParser;
 #[derive(Clone)]
 pub enum TinyLangTypes {
     String(String),
-    Int(i64),
-    Float(f64),
+    Numeric(f64),
+    Bool(bool),
 }
 
 impl Display for TinyLangTypes {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TinyLangTypes::Int(e) => write!(f, "{}", e),
-            TinyLangTypes::Float(e) => write!(f, "{}", e),
+            TinyLangTypes::Numeric(e) => write!(f, "{}", e),
             TinyLangTypes::String(e) => write!(f, "{}", e),
+            TinyLangTypes::Bool(e) => write!(f, "{}", e),
         }
     }
 }
 
+impl TryInto<f64> for TinyLangTypes {
+    type Error = InvalidLangType;
+
+    fn try_into(self) -> Result<f64, Self::Error> {
+        match self {
+            TinyLangTypes::String(_) => Err(InvalidLangType),
+            TinyLangTypes::Bool(_) => Err(InvalidLangType),
+            TinyLangTypes::Numeric(f) => Ok(f.clone()),
+        }
+    }
+}
+
+impl Into<String> for TinyLangTypes {
+    fn into(self) -> String {
+        self.to_string()
+    }
+}
+
+impl From<String> for TinyLangTypes {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<i32> for TinyLangTypes {
+    fn from(value: i32) -> Self {
+        Self::Numeric(value.into())
+    }
+}
+
+impl From<f64> for TinyLangTypes {
+    fn from(value: f64) -> Self {
+        Self::Numeric(value)
+    }
+}
+
+impl From<f32> for TinyLangTypes {
+    fn from(value: f32) -> Self {
+        Self::Numeric(value.into())
+    }
+}
+
+impl From<bool> for TinyLangTypes {
+    fn from(value: bool) -> Self {
+        Self::Bool(value.into())
+    }
+}
+
 type State = HashMap<String, TinyLangTypes>;
+
+#[derive(Debug)]
+pub enum TinyLangError {
+    ParserError(ParseError),
+    RuntimeError(RuntimeError),
+}
+
+impl From<ParseError> for TinyLangError {
+    fn from(value: ParseError) -> Self {
+        TinyLangError::ParserError(value)
+    }
+}
+
+impl From<RuntimeError> for TinyLangError {
+    fn from(value: RuntimeError) -> Self {
+        TinyLangError::RuntimeError(value)
+    }
+}
+
+#[derive(Debug)]
+pub enum RuntimeError {
+    Generic(String),
+    VariableNotDefined(String),
+}
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -49,8 +124,9 @@ const PRATT_PARSER_MATH: Lazy<PrattParser<Rule>> = Lazy::new(|| {
         .op(Op::prefix(Rule::neg))
 });
 
-pub fn eval(input: &str, state: State) -> Result<String, ParseError> {
+pub fn eval(input: &str, state: State) -> Result<String, TinyLangError> {
     let pairs = parse(input)?.next().unwrap().into_inner();
+    println!("{:?}", pairs);
     let mut output = String::new();
 
     for pair in pairs {
@@ -65,7 +141,7 @@ pub fn eval(input: &str, state: State) -> Result<String, ParseError> {
     Ok(output)
 }
 
-fn visit_print(node: Pairs<Rule>, state: &State) -> Result<String, ParseError> {
+fn visit_print(node: Pairs<Rule>, state: &State) -> Result<String, TinyLangError> {
     let mut result = String::new();
     for child in node {
         let child_result = match child.as_rule() {
@@ -73,49 +149,46 @@ fn visit_print(node: Pairs<Rule>, state: &State) -> Result<String, ParseError> {
             _ => {
                 return Err(ParseError::InvalidNode(
                     format!("print statement does not accept {:?}", child).to_owned(),
-                ))
+                )
+                .into())
             }
         };
-        result.push_str(&child_result);
+        result.push_str(&child_result.to_string());
     }
     Ok(result)
 }
 
-fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<String, ParseError> {
-    //TODO make it better
+fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
     let first_child = node.into_iter().next().unwrap();
     match first_child.as_rule() {
-        Rule::lang_types => visit_lang_types(first_child.into_inner()),
-        Rule::math => Ok(visit_math(first_child.into_inner(), state)?.to_string()),
+        Rule::literal => visit_literal(first_child.into_inner()),
+        Rule::math => Ok(TinyLangTypes::Numeric(
+            visit_math(first_child.into_inner(), state)?.into(),
+        )),
         Rule::identifier => visit_identifier(first_child, state),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_exp was called with an invalid node {:?}",
             first_child
-        ))),
+        ))
+        .into()),
     }
 }
 
-fn visit_identifier(node: Pair<Rule>, state: &State) -> Result<String, ParseError> {
-    //TODO handle errors
-    println!("{:?}", node);
+fn visit_identifier(node: Pair<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
     let key = node.as_span().as_str();
     match state.get(key) {
-        //TODO change this later since we cannot handle this as string forever
-        Some(value) => Ok(value.to_owned().to_string()),
-        None => Err(ParseError::Generic(format!("{key} is not defined"))),
+        Some(value) => Ok(value.to_owned()),
+        None => Err(RuntimeError::VariableNotDefined(format!("{key} is not defined")).into()),
     }
 }
 
-fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<f32, ParseError> {
+fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<f64, TinyLangError> {
     let result = PRATT_PARSER_MATH
         .map_primary(|primary| match primary.as_rule() {
             Rule::integer | Rule::float => primary.as_str().parse().unwrap(),
-            //TODO we don't need to convert to string and to f64 if it's already
-            // a numeric type and if it's a string we should fail the operation
             Rule::identifier => visit_identifier(primary, state)
                 .unwrap()
-                .to_string()
-                .parse()
+                .try_into() // this can fail when the variable is actually a bool or a string
                 .unwrap(),
             Rule::math => visit_math(primary.into_inner(), state).unwrap(), // from "(" ~ math ~ ")"
             _ => unreachable!(),
@@ -136,20 +209,33 @@ fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<f32, ParseError> {
     Ok(result)
 }
 
-fn visit_lang_types<'a>(node: Pairs<Rule>) -> Result<String, ParseError> {
-    for child in node {
-        // we know for now that this resolves to a single child
-        return match child.as_rule() {
-            Rule::integer | Rule::float => Ok(child.as_str().to_string()),
-            _ => Err(ParseError::InvalidNode(format!(
-                "visit_lang_types was called with an invalid node {:?}",
-                child
-            ))),
-        };
+fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
+    let child = match node.into_iter().next() {
+        Some(child) => child,
+        None => {
+            return Err(ParseError::InvalidNode(format!(
+                "visit_lang_types was called with an empty node"
+            ))
+            .into())
+        }
+    };
+    //TODO handle errors
+    match child.as_rule() {
+        Rule::integer | Rule::float => Ok(TinyLangTypes::Numeric(child.as_str().parse().unwrap())),
+        Rule::bool => Ok(TinyLangTypes::Bool(child.as_str().parse().unwrap())),
+        Rule::string => {
+            // we need to remove the ' from start and end of the string
+            let mut string = child.as_str().to_string();
+            string.remove(0);
+            string.remove(string.len() - 1);
+            Ok(string.into())
+        },
+        _ => Err(ParseError::InvalidNode(format!(
+            "visit_lang_types was called with an invalid node {:?}",
+            child
+        ))
+        .into()),
     }
-    Err(ParseError::InvalidNode(format!(
-        "visit_lang_types was called with an empty node"
-    )))
 }
 
 pub fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
@@ -200,8 +286,8 @@ mod test {
 
     #[test]
     fn test_literal_float_math_print_stmt() {
-        let result = eval("{{ 12.4 + 4 }}", HashMap::default()).unwrap();
-        assert_eq!("16.4", result.as_str());
+        let result = eval("{{ 12.4 + 4.6 }}", HashMap::default()).unwrap();
+        assert_eq!("17", result.as_str());
     }
 
     #[test]
@@ -231,7 +317,7 @@ mod test {
     fn test_identifier_print_stmt() {
         let result = eval(
             "{{ a }}",
-            HashMap::from([("a".into(), TinyLangTypes::Int(5))]),
+            HashMap::from([("a".into(), TinyLangTypes::Numeric(5 as f64))]),
         )
         .unwrap();
         assert_eq!("5", result.as_str())
@@ -241,9 +327,21 @@ mod test {
     fn test_identifier_math_print_stmt() {
         let result = eval(
             "{{ a * 2 + a}}",
-            HashMap::from([("a".into(), TinyLangTypes::Int(5))]),
+            HashMap::from([("a".into(), TinyLangTypes::Numeric(5 as f64))]),
         )
         .unwrap();
         assert_eq!("15", result.as_str())
+    }
+
+    #[test]
+    fn test_bool_print_stmt() {
+        let result = eval("{{ true }}", HashMap::default()).unwrap();
+        assert_eq!("true", result.as_str())
+    }
+
+    #[test]
+    fn test_string_print_stmt() {
+        let result = eval("{{ 'something' }}", HashMap::default()).unwrap();
+        assert_eq!("something", result.as_str())
     }
 }
