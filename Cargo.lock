@@ -179,6 +179,7 @@ dependencies = [
  "once_cell",
  "pest",
  "pest_derive",
+ "thiserror",
 ]
 
 [[package]]

@@ -10,9 +10,7 @@ use pest::Parser;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
-
-#[derive(Clone, Debug)]
-pub struct InvalidLangType;
+use thiserror::Error;
 
 #[derive(Parser)]
 #[grammar = "../grammar/template_lang.pest"]
@@ -36,12 +34,12 @@ impl Display for TinyLangTypes {
 }
 
 impl TryInto<f64> for TinyLangTypes {
-    type Error = InvalidLangType;
+    type Error = RuntimeError;
 
     fn try_into(self) -> Result<f64, Self::Error> {
         match self {
-            TinyLangTypes::String(_) => Err(InvalidLangType),
-            TinyLangTypes::Bool(_) => Err(InvalidLangType),
+            TinyLangTypes::String(_) => Err(RuntimeError::InvalidLangType),
+            TinyLangTypes::Bool(_) => Err(RuntimeError::InvalidLangType),
             TinyLangTypes::Numeric(f) => Ok(f.clone()),
         }
     }
@@ -85,9 +83,11 @@ impl From<bool> for TinyLangTypes {
 
 type State = HashMap<String, TinyLangTypes>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TinyLangError {
+    #[error("parser error {0:?}")]
     ParserError(ParseError),
+    #[error("runtime error {0:?}")]
     RuntimeError(RuntimeError),
 }
 
@@ -103,15 +103,21 @@ impl From<RuntimeError> for TinyLangError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RuntimeError {
+    #[error("generic error {0:?}")]
     Generic(String),
+    #[error("variable not defined {0:?}")]
     VariableNotDefined(String),
+    #[error("Invalid Lang Type")]
+    InvalidLangType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ParseError {
+    #[error("Error while parsing code {0:?}")]
     Generic(String),
+    #[error("Invalid node type {0:?}")]
     InvalidNode(String),
 }
 
@@ -229,7 +235,7 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
             string.remove(0);
             string.remove(string.len() - 1);
             Ok(string.into())
-        },
+        }
         _ => Err(ParseError::InvalidNode(format!(
             "visit_lang_types was called with an invalid node {:?}",
             child
