@@ -249,6 +249,7 @@ mod test {
         let result = eval("{{ 'something' }}", HashMap::default()).unwrap();
         assert_eq!("something", result.as_str())
     }
+
     #[test]
     fn test_invalid_stmt() {
         let result = eval("abc {{ 1 2 3 }} {{1}}", HashMap::default()).unwrap();
