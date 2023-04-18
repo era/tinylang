@@ -43,6 +43,12 @@ impl From<String> for TinyLangTypes {
     }
 }
 
+impl From<&str> for TinyLangTypes {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_string())
+    }
+}
+
 impl From<i32> for TinyLangTypes {
     fn from(value: i32) -> Self {
         Self::Numeric(value.into())

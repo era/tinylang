@@ -145,9 +145,8 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
         Rule::bool => Ok(TinyLangTypes::Bool(child.as_str().parse().unwrap())),
         Rule::string => {
             // we need to remove the ' from start and end of the string
-            let mut string = child.as_str().to_string();
-            string.remove(0);
-            string.remove(string.len() - 1);
+            let str_val = child.as_str();
+            let string = &str_val[1..str_val.len() - 1];
             Ok(string.into())
         }
         _ => Err(ParseError::InvalidNode(format!(
