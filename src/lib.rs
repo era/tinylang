@@ -139,9 +139,10 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
             .into())
         }
     };
-    //TODO handle errors
     match child.as_rule() {
+        // cannot fail given our grammar
         Rule::integer | Rule::float => Ok(TinyLangTypes::Numeric(child.as_str().parse().unwrap())),
+        // cannot fail given our grammar
         Rule::bool => Ok(TinyLangTypes::Bool(child.as_str().parse().unwrap())),
         Rule::string => {
             // we need to remove the ' from start and end of the string
