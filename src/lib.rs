@@ -38,7 +38,11 @@ pub fn eval(input: &str, state: State) -> Result<String, TinyLangError> {
         let current_output = match pair.as_rule() {
             Rule::html => pair.as_str().to_string(),
             Rule::print => visit_print(pair.into_inner(), &state)?,
-            Rule::invalid => format!("Invalid exp: {}", pair.as_span().as_str()),
+            Rule::invalid => {
+                return Err(TinyLangError::ParserError(ParseError::InvalidNode(
+                    format!("Invalid exp: {}", pair.as_span().as_str()),
+                )))
+            }
             _ => todo!(),
         };
         output.push_str(&current_output);
@@ -59,10 +63,11 @@ fn visit_print(node: Pairs<Rule>, state: &State) -> Result<String, TinyLangError
         let child_result = match child.as_rule() {
             Rule::exp => visit_exp(child.into_inner(), state)?,
             _ => {
-                return Err(ParseError::InvalidNode(
-                    format!("print statement does not accept {:?}", child),
-                )
-                    .into())
+                return Err(ParseError::InvalidNode(format!(
+                    "print statement does not accept {:?}",
+                    child
+                ))
+                .into())
             }
         };
         result.push_str(&child_result.to_string());
@@ -74,15 +79,16 @@ fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLang
     let first_child = node.into_iter().next().unwrap();
     match first_child.as_rule() {
         Rule::literal => visit_literal(first_child.into_inner()),
-        Rule::math => Ok(TinyLangTypes::Numeric(
-            visit_math(first_child.into_inner(), state)?,
-        )),
+        Rule::math => Ok(TinyLangTypes::Numeric(visit_math(
+            first_child.into_inner(),
+            state,
+        )?)),
         Rule::identifier => visit_identifier(first_child, state),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_exp was called with an invalid node {:?}",
             first_child
         ))
-            .into()),
+        .into()),
     }
 }
 
@@ -95,31 +101,32 @@ fn visit_identifier(node: Pair<Rule>, state: &State) -> Result<TinyLangTypes, Ti
 }
 
 fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<f64, TinyLangError> {
-    //TODO properly handle errors
-    let result = PRATT_PARSER_MATH
+    PRATT_PARSER_MATH
         .map_primary(|primary| match primary.as_rule() {
-            Rule::integer | Rule::float => primary.as_str().parse().unwrap(),
-            Rule::identifier => visit_identifier(primary, state)
-                .unwrap()
-                .try_into() // this can fail when the variable is actually a bool or a string
-                .unwrap(),
-            Rule::math => visit_math(primary.into_inner(), state).unwrap(), // from "(" ~ math ~ ")"
+            // we know Rule::integer and Rule::float cannot give
+            // strings that are not numbers
+            Rule::integer | Rule::float => Ok(primary.as_str().parse().unwrap()),
+            Rule::identifier => visit_identifier(primary, state)?
+                .try_into()
+                .map_err(|_e| TinyLangError::RuntimeError(RuntimeError::ExpectingNumber)),
+            Rule::math => Ok(visit_math(primary.into_inner(), state).unwrap()), // from "(" ~ math ~ ")"
             _ => unreachable!(),
         })
         .map_prefix(|op, rhs| match op.as_rule() {
-            Rule::neg => -rhs,
+            Rule::neg => Ok(-(rhs.unwrap())),
             _ => unreachable!(),
         })
-        .map_infix(|lhs, op, rhs| match op.as_rule() {
-            Rule::add => lhs + rhs,
-            Rule::sub => lhs - rhs,
-            Rule::mul => lhs * rhs,
-            Rule::div => lhs / rhs,
-            _ => unreachable!(),
+        .map_infix(|lhs, op, rhs| {
+            let result = match op.as_rule() {
+                Rule::add => lhs? + rhs?,
+                Rule::sub => lhs? - rhs?,
+                Rule::mul => lhs? * rhs?,
+                Rule::div => lhs? / rhs?,
+                _ => unreachable!(),
+            };
+            Ok(result)
         })
-        .parse(pairs);
-
-    Ok(result)
+        .parse(pairs)
 }
 
 fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
@@ -127,9 +134,9 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
         Some(child) => child,
         None => {
             return Err(ParseError::InvalidNode(
-                "visit_lang_types was called with an empty node".to_string()
+                "visit_lang_types was called with an empty node".to_string(),
             )
-                .into())
+            .into())
         }
     };
     //TODO handle errors
@@ -147,7 +154,7 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
             "visit_lang_types was called with an invalid node {:?}",
             child
         ))
-            .into()),
+        .into()),
     }
 }
 
@@ -224,7 +231,7 @@ mod test {
             "{{ a }}",
             HashMap::from([("a".into(), TinyLangTypes::Numeric(5 as f64))]),
         )
-            .unwrap();
+        .unwrap();
         assert_eq!("5", result.as_str())
     }
 
@@ -234,7 +241,7 @@ mod test {
             "{{ a * 2 + a}}",
             HashMap::from([("a".into(), TinyLangTypes::Numeric(5 as f64))]),
         )
-            .unwrap();
+        .unwrap();
         assert_eq!("15", result.as_str())
     }
 
@@ -252,7 +259,24 @@ mod test {
 
     #[test]
     fn test_invalid_stmt() {
-        let result = eval("abc {{ 1 2 3 }} {{1}}", HashMap::default()).unwrap();
-        assert_eq!("abc Invalid exp: {{ 1 2 3 }} {{1}}", result.as_str())
+        let result = eval("abc {{ 1 2 3 }} {{1}}", HashMap::default());
+        assert_eq!(
+            Err(TinyLangError::ParserError(ParseError::InvalidNode(
+                "Invalid exp: {{ 1 2 3 }} {{1}}".into()
+            ))),
+            result
+        );
+    }
+
+    #[test]
+    fn test_invalid_math_stmt() {
+        let result = eval(
+            "{{ a * 2 + a}}",
+            HashMap::from([("a".into(), TinyLangTypes::String("abc".into()))]),
+        );
+        assert_eq!(
+            Err(TinyLangError::RuntimeError(RuntimeError::ExpectingNumber)),
+            result
+        );
     }
 }

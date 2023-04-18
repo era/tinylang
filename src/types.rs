@@ -1,6 +1,6 @@
+use crate::errors::RuntimeError;
 use std::fmt;
 use std::fmt::Display;
-use crate::errors::RuntimeError;
 
 #[derive(Clone)]
 pub enum TinyLangTypes {

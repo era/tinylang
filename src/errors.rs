@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum TinyLangError {
     #[error("parser error {0:?}")]
     ParserError(ParseError),
@@ -20,7 +20,7 @@ impl From<RuntimeError> for TinyLangError {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum RuntimeError {
     #[error("generic error {0:?}")]
     Generic(String),
@@ -28,9 +28,11 @@ pub enum RuntimeError {
     VariableNotDefined(String),
     #[error("Invalid Lang Type")]
     InvalidLangType,
+    #[error("Identifier is not a Number")]
+    ExpectingNumber,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum ParseError {
     #[error("Error while parsing code {0:?}")]
     Generic(String),

@@ -1,4 +1,4 @@
-WHITESPACE = _{ " " | "\t"  | NEWLINE} // WHITE_SPACE
+WHITESPACE = _{ " " | "\t"  | NEWLINE}
 NON_SILENT_WHITESPACE = { " " | "\t" | NEWLINE }
 integer = @{ (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT+ | ASCII_DIGIT) }
 float =  @{ ( ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ ) }
