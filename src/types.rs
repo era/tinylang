@@ -1,12 +1,62 @@
 use crate::errors::RuntimeError;
 use std::fmt;
 use std::fmt::Display;
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum TinyLangTypes {
     String(String),
     Numeric(f64),
     Bool(bool),
+}
+
+impl Div for TinyLangTypes {
+    type Output = Result<TinyLangTypes, RuntimeError>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let lhs: f64 = self.try_into()?;
+        let rhs: f64 = rhs.try_into()?;
+        Ok(TinyLangTypes::Numeric(lhs / rhs))
+    }
+}
+
+impl Mul for TinyLangTypes {
+    type Output = Result<TinyLangTypes, RuntimeError>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let lhs: f64 = self.try_into()?;
+        let rhs: f64 = rhs.try_into()?;
+        Ok(TinyLangTypes::Numeric(lhs * rhs))
+    }
+}
+
+impl Add for TinyLangTypes {
+    type Output = Result<TinyLangTypes, RuntimeError>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let lhs: f64 = self.try_into()?;
+        let rhs: f64 = rhs.try_into()?;
+        Ok(TinyLangTypes::Numeric(lhs + rhs))
+    }
+}
+
+impl Sub for TinyLangTypes {
+    type Output = Result<TinyLangTypes, RuntimeError>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let lhs: f64 = self.try_into()?;
+        let rhs: f64 = rhs.try_into()?;
+        Ok(TinyLangTypes::Numeric(lhs - rhs))
+    }
+}
+
+impl Neg for TinyLangTypes {
+    type Output = Result<TinyLangTypes, RuntimeError>;
+
+    fn neg(self) -> Self::Output {
+        let lhs: f64 = self.try_into()?;
+        Ok(TinyLangTypes::Numeric(-lhs))
+    }
 }
 
 impl Display for TinyLangTypes {

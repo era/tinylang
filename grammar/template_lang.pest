@@ -6,11 +6,13 @@ numeric = _{ float | integer }
 bool = { "true" | "false" }
 string = { "'" ~ (!"'" ~ ANY)* ~ "'" }
 literal = { numeric | bool | string }
-infix    =  _{ add | sub | mul | div  }
+infix    =  _{ add | sub | mul | div | op_eq | op_neq }
 add    =   { "+" }
 sub    =   { "-" }
 mul    =   { "*" }
 div    =   { "/" }
+op_eq = { "==" }
+op_neq = { "!=" }
 prefix   =  _{ neg }
 neg    =   { "-" }
 identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
