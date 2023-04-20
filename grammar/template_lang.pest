@@ -16,7 +16,7 @@ op_neq = { "!=" }
 prefix   =  _{ neg }
 neg    =   { "-" }
 identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
-primary = _{ numeric | bool | string | "(" ~ math ~ ")" | identifier }
+primary = _{ literal | "(" ~ math ~ ")" | identifier }
 math = { prefix* ~ primary ~ WHITESPACE* ~ (infix ~ WHITESPACE* ~ prefix* ~ primary)+ }
 exp = { math | literal | identifier }
 dynamic = { "{%" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "%}" }

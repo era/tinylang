@@ -101,13 +101,7 @@ fn visit_identifier(node: Pair<Rule>, state: &State) -> Result<TinyLangTypes, Ti
 fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
     PRATT_PARSER_MATH
         .map_primary(|primary| match primary.as_rule() {
-            // we know Rule::integer and Rule::float cannot give
-            // strings that are not numbers (well, this can still fail
-            // because it could be a huge number, but let's ignore this for
-            // now)
-            Rule::integer | Rule::float => Ok(primary.as_str().parse::<f64>().unwrap().into()),
-            Rule::string => Ok(primary.as_str().to_string().into()),
-            Rule::bool => Ok(primary.as_str().parse::<bool>().unwrap().into()),
+            Rule::literal => visit_literal(primary.into_inner()),
             Rule::identifier => visit_identifier(primary, state),
             Rule::math => visit_math(primary.into_inner(), state), // from "(" ~ math ~ ")"
             _ => unreachable!(),
