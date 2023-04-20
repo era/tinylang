@@ -80,10 +80,7 @@ fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLang
     let first_child = node.into_iter().next().unwrap();
     match first_child.as_rule() {
         Rule::literal => visit_literal(first_child.into_inner()),
-        Rule::math => visit_math(
-            first_child.into_inner(),
-            state,
-        ),
+        Rule::math => visit_math(first_child.into_inner(), state),
         Rule::identifier => visit_identifier(first_child, state),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_exp was called with an invalid node {:?}",
@@ -109,16 +106,18 @@ fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLa
             // because it could be a huge number, but let's ignore this for
             // now)
             Rule::integer | Rule::float => Ok(primary.as_str().parse::<f64>().unwrap().into()),
+            Rule::string => Ok(primary.as_str().to_string().into()),
+            Rule::bool => Ok(primary.as_str().parse::<bool>().unwrap().into()),
             Rule::identifier => visit_identifier(primary, state),
             Rule::math => visit_math(primary.into_inner(), state), // from "(" ~ math ~ ")"
-            _ => unreachable!(), //TODO
+            _ => unreachable!(),
         })
         .map_prefix(|op, rhs| match op.as_rule() {
             Rule::neg => Ok((-(rhs?))?),
             _ => unreachable!(),
         })
         .map_infix(|lhs, op, rhs| {
-          let result = match op.as_rule() {
+            let result = match op.as_rule() {
                 Rule::add => lhs? + rhs?,
                 Rule::sub => lhs? - rhs?,
                 Rule::mul => lhs? * rhs?,
@@ -297,5 +296,20 @@ mod test {
         let result = eval("{{ 1 != 1 }}", HashMap::default()).unwrap();
         assert_eq!("false", result.as_str())
     }
-    // maior e menor
+
+    #[test]
+    fn test_comp_eq_str_stmt() {
+        let result = eval("{{ 'a' == 'a' }}", HashMap::default()).unwrap();
+        assert_eq!("true", result.as_str())
+    }
+
+    #[test]
+    fn test_comp_eq_str_ident_stmt() {
+        let result = eval(
+            "{{ 'a' == 'a' }}",
+            HashMap::from([("a".into(), TinyLangTypes::String("abc".into()))]),
+        )
+        .unwrap();
+        assert_eq!("true", result.as_str())
+    }
 }
