@@ -20,6 +20,18 @@ struct TemplateLangParser;
 
 type State = HashMap<String, TinyLangTypes>;
 
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+pub fn eval_wasm(input: &str) -> String {
+    match eval(input, HashMap::default()) {
+        Ok(s) => s,
+        Err(e) => e.to_string(),
+    }
+}
+
 // explanation on Pratt parsers in Rust:
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 static PRATT_PARSER_MATH: Lazy<PrattParser<Rule>> = Lazy::new(|| {
