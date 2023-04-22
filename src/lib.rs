@@ -179,6 +179,7 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
             let string = &str_val[1..str_val.len() - 1];
             Ok(string.into())
         }
+        Rule::nil => Ok(TinyLangTypes::Nil),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_lang_types was called with an invalid node {:?}",
             child
