@@ -36,6 +36,7 @@ pub fn eval_wasm(input: &str) -> String {
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 static PRATT_PARSER_MATH: Lazy<PrattParser<Rule>> = Lazy::new(|| {
     PrattParser::new()
+        .op(Op::infix(Rule::op_and, Assoc::Left) | Op::infix(Rule::op_or, Assoc::Left))
         .op(Op::infix(Rule::op_eq, Assoc::Left) | Op::infix(Rule::op_neq, Assoc::Left))
         .op(Op::infix(Rule::add, Assoc::Left) | Op::infix(Rule::sub, Assoc::Left))
         .op(Op::infix(Rule::mul, Assoc::Left) | Op::infix(Rule::div, Assoc::Left))
@@ -128,14 +129,31 @@ fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLa
                 Rule::sub => lhs? - rhs?,
                 Rule::mul => lhs? * rhs?,
                 Rule::div => lhs? / rhs?,
-                Rule::op_eq => Ok(TinyLangTypes::Bool(lhs == rhs)),
-                Rule::op_neq => Ok(TinyLangTypes::Bool(lhs != rhs)),
+                Rule::op_eq => Ok(TinyLangTypes::Bool(lhs? == rhs?)),
+                Rule::op_neq => Ok(TinyLangTypes::Bool(lhs? != rhs?)),
+                Rule::op_and | Rule::op_or => visit_logical_op(op.as_rule(), lhs?, rhs?),
                 _ => unreachable!(),
             };
 
-            result.map_err(|e| TinyLangError::RuntimeError(e))
+            result.map_err(TinyLangError::RuntimeError)
         })
         .parse(pairs)
+}
+
+fn visit_logical_op(
+    op: Rule,
+    lhs: TinyLangTypes,
+    rhs: TinyLangTypes,
+) -> Result<TinyLangTypes, RuntimeError> {
+    match (op, lhs, rhs) {
+        (Rule::op_and, TinyLangTypes::Bool(lhs), TinyLangTypes::Bool(rhs)) => {
+            Ok(TinyLangTypes::Bool(lhs && rhs))
+        }
+        (Rule::op_or, TinyLangTypes::Bool(lhs), TinyLangTypes::Bool(rhs)) => {
+            Ok(TinyLangTypes::Bool(lhs || rhs))
+        }
+        _ => Err(RuntimeError::InvalidLangType),
+    }
 }
 
 fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
@@ -316,6 +334,18 @@ mod test {
             HashMap::from([("a".into(), TinyLangTypes::String("abc".into()))]),
         )
         .unwrap();
+        assert_eq!("true", result.as_str())
+    }
+
+    #[test]
+    fn test_comp_neq_and_stmt() {
+        let result = eval("{{ 1 != 3 and 1 != 2 }}", HashMap::default()).unwrap();
+        assert_eq!("true", result.as_str())
+    }
+
+    #[test]
+    fn test_comp_neq_or_stmt() {
+        let result = eval("{{ 1 != 1 or 1 != 2 }}", HashMap::default()).unwrap();
         assert_eq!("true", result.as_str())
     }
 }
