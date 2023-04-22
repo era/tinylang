@@ -111,7 +111,7 @@ fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLang
 fn visit_identifier(node: Pair<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
     let key = node.as_span().as_str();
     match state.get(key) {
-        Some(value) => Ok(value.to_owned()),
+        Some(value) => Ok(value.clone()),
         None => Ok(TinyLangTypes::Nil),
     }
 }

@@ -1,14 +1,46 @@
+use std::cmp::Ordering;
 use crate::errors::RuntimeError;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::sync::Arc;
 
-#[derive(Clone, PartialEq, PartialOrd)]
+
+pub type FuncArguments = Vec<TinyLangTypes>;
+
+#[derive(Clone)]
 pub enum TinyLangTypes {
     String(String),
     Numeric(f64),
     Bool(bool),
+    Function(Arc<Box<dyn Fn(FuncArguments) -> TinyLangTypes>>),
     Nil,
+}
+
+impl PartialEq for TinyLangTypes {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (TinyLangTypes::String(a), TinyLangTypes::String(b)) => a == b,
+            (TinyLangTypes::Numeric(a), TinyLangTypes::Numeric(b)) => a == b,
+            (TinyLangTypes::Bool(a), TinyLangTypes::Bool(b)) => a == b,
+            // Ignore the Function variant in the comparison
+            (TinyLangTypes::Nil, TinyLangTypes::Nil) => true,
+            _ => false,
+        }
+    }
+}
+
+impl PartialOrd for TinyLangTypes {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (TinyLangTypes::String(a), TinyLangTypes::String(b)) => a.partial_cmp(b),
+            (TinyLangTypes::Numeric(a), TinyLangTypes::Numeric(b)) => a.partial_cmp(b),
+            (TinyLangTypes::Bool(a), TinyLangTypes::Bool(b)) => a.partial_cmp(b),
+            // Ignore the Function variant in the comparison
+            (TinyLangTypes::Nil, TinyLangTypes::Nil) => Some(Ordering::Equal),
+            _ => None,
+        }
+    }
 }
 
 macro_rules! math_operation {
@@ -67,6 +99,7 @@ impl Display for TinyLangTypes {
             TinyLangTypes::String(e) => write!(f, "{}", e),
             TinyLangTypes::Bool(e) => write!(f, "{}", e),
             TinyLangTypes::Nil => write!(f, "Nil"),
+            TinyLangTypes::Function(_) => write!(f, "Function"),
         }
     }
 }
@@ -80,6 +113,7 @@ impl TryInto<f64> for TinyLangTypes {
             TinyLangTypes::Bool(_) => Err(RuntimeError::InvalidLangType),
             TinyLangTypes::Numeric(f) => Ok(f),
             TinyLangTypes::Nil => Err(RuntimeError::InvalidLangType),
+            TinyLangTypes::Function(_) => Err(RuntimeError::InvalidLangType),
         }
     }
 }
