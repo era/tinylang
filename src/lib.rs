@@ -34,7 +34,7 @@ pub fn eval_wasm(input: &str) -> String {
 
 // explanation on Pratt parsers in Rust:
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
-static PRATT_PARSER_MATH: Lazy<PrattParser<Rule>> = Lazy::new(|| {
+static PRATT_PARSER_OP_EXP: Lazy<PrattParser<Rule>> = Lazy::new(|| {
     PrattParser::new()
         .op(Op::infix(Rule::op_and, Assoc::Left) | Op::infix(Rule::op_or, Assoc::Left))
         .op(Op::infix(Rule::op_eq, Assoc::Left) | Op::infix(Rule::op_neq, Assoc::Left))
@@ -93,7 +93,7 @@ fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLang
     let first_child = node.into_iter().next().unwrap();
     match first_child.as_rule() {
         Rule::literal => visit_literal(first_child.into_inner()),
-        Rule::math => visit_math(first_child.into_inner(), state),
+        Rule::op_exp => visit_op_exp(first_child.into_inner(), state),
         Rule::identifier => visit_identifier(first_child, state),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_exp was called with an invalid node {:?}",
@@ -111,12 +111,12 @@ fn visit_identifier(node: Pair<Rule>, state: &State) -> Result<TinyLangTypes, Ti
     }
 }
 
-fn visit_math(pairs: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
-    PRATT_PARSER_MATH
+fn visit_op_exp(pairs: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
+    PRATT_PARSER_OP_EXP
         .map_primary(|primary| match primary.as_rule() {
             Rule::literal => visit_literal(primary.into_inner()),
             Rule::identifier => visit_identifier(primary, state),
-            Rule::math => visit_math(primary.into_inner(), state), // from "(" ~ math ~ ")"
+            Rule::op_exp => visit_op_exp(primary.into_inner(), state), // from "(" ~ op_exp ~ ")"
             _ => unreachable!(),
         })
         .map_prefix(|op, rhs| match op.as_rule() {

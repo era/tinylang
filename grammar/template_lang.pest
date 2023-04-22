@@ -19,9 +19,9 @@ op_neq = { "!=" }
 prefix   =  _{ neg }
 neg    =   { "-" }
 identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
-primary = _{ literal | "(" ~ math ~ ")" | identifier }
-math = { prefix* ~ primary ~ WHITESPACE* ~ (infix ~ WHITESPACE* ~ prefix* ~ primary)+ }
-exp = { math | literal | identifier }
+primary = _{ literal | "(" ~ op_exp ~ ")" | identifier }
+op_exp= { prefix* ~ primary ~ WHITESPACE* ~ (infix ~ WHITESPACE* ~ prefix* ~ primary)+ }
+exp = { op_exp | literal | identifier }
 dynamic = { "{%" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "%}" }
 print = { "{{" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "}}"}
 html = { !("{{" | "{%") ~ NON_SILENT_WHITESPACE* ~ ANY ~ NON_SILENT_WHITESPACE* }
