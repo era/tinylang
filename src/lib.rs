@@ -100,11 +100,28 @@ fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLang
         Rule::literal => visit_literal(first_child.into_inner()),
         Rule::op_exp => visit_op_exp(first_child.into_inner(), state),
         Rule::identifier => visit_identifier(first_child, state),
+        Rule::function_call => visit_function_call(first_child.into_inner(), state),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_exp was called with an invalid node {:?}",
             first_child
         ))
         .into()),
+    }
+}
+
+fn visit_function_call(mut nodes: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
+    let function = visit_identifier(nodes.next().unwrap(), state)?;
+    let mut params = Vec::new();
+
+    for node in nodes {
+        let param = visit_exp(node.into_inner(), state)?;
+        params.push(param);
+    }
+    
+    match function {
+        TinyLangTypes::Function(f) => Ok(f(params)),
+        TinyLangTypes::Nil => Err(TinyLangError::RuntimeError(RuntimeError::IdentifierIsNil)),
+        _ => Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
     }
 }
 
@@ -200,6 +217,7 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::sync::Arc;
 
     #[test]
     fn test_basic_html() {
@@ -381,5 +399,19 @@ mod test {
     fn test_g_stmt() {
         let result = eval("{{ 4 > 1 }}", HashMap::default()).unwrap();
         assert_eq!("true", result.as_str())
+    }
+
+    #[test]
+    fn test_function_call_stmt() {
+        // , 2, 3, 3 * 2
+        let result = eval(
+            "{{ f(1) }}",
+            HashMap::from([(
+                "f".into(),
+                TinyLangTypes::Function(Arc::new(Box::new(|args| args.get(0).unwrap().clone()))),
+            )]),
+        )
+        .unwrap();
+        assert_eq!("1", result.as_str())
     }
 }

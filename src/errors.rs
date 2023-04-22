@@ -30,6 +30,8 @@ pub enum RuntimeError {
     InvalidLangType,
     #[error("Identifier is not a Number")]
     ExpectingNumber,
+    #[error("Identifier is Nil")]
+    IdentifierIsNil,
 }
 
 #[derive(Debug, Error, PartialEq)]

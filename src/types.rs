@@ -1,10 +1,9 @@
-use std::cmp::Ordering;
 use crate::errors::RuntimeError;
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
-
 
 pub type FuncArguments = Vec<TinyLangTypes>;
 
