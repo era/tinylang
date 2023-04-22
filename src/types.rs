@@ -11,13 +11,19 @@ pub enum TinyLangTypes {
     Nil,
 }
 
+macro_rules! math_operation {
+    ($x:expr, $y:expr, $op:tt) => {{
+        let lhs: f64 = $x.try_into()?;
+        let rhs: f64 = $y.try_into()?;
+        Ok(TinyLangTypes::Numeric(lhs $op rhs))
+    }};
+}
+
 impl Div for TinyLangTypes {
     type Output = Result<TinyLangTypes, RuntimeError>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let lhs: f64 = self.try_into()?;
-        let rhs: f64 = rhs.try_into()?;
-        Ok(TinyLangTypes::Numeric(lhs / rhs))
+        math_operation!(self, rhs, /)
     }
 }
 
@@ -25,9 +31,7 @@ impl Mul for TinyLangTypes {
     type Output = Result<TinyLangTypes, RuntimeError>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let lhs: f64 = self.try_into()?;
-        let rhs: f64 = rhs.try_into()?;
-        Ok(TinyLangTypes::Numeric(lhs * rhs))
+        math_operation!(self, rhs, *)
     }
 }
 
@@ -35,9 +39,7 @@ impl Add for TinyLangTypes {
     type Output = Result<TinyLangTypes, RuntimeError>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let lhs: f64 = self.try_into()?;
-        let rhs: f64 = rhs.try_into()?;
-        Ok(TinyLangTypes::Numeric(lhs + rhs))
+        math_operation!(self, rhs, +)
     }
 }
 
@@ -45,9 +47,7 @@ impl Sub for TinyLangTypes {
     type Output = Result<TinyLangTypes, RuntimeError>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let lhs: f64 = self.try_into()?;
-        let rhs: f64 = rhs.try_into()?;
-        Ok(TinyLangTypes::Numeric(lhs - rhs))
+        math_operation!(self, rhs, -)
     }
 }
 
