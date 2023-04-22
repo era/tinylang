@@ -107,7 +107,7 @@ fn visit_identifier(node: Pair<Rule>, state: &State) -> Result<TinyLangTypes, Ti
     let key = node.as_span().as_str();
     match state.get(key) {
         Some(value) => Ok(value.to_owned()),
-        None => Err(RuntimeError::VariableNotDefined(format!("{key} is not defined")).into()),
+        None => Ok(TinyLangTypes::Nil),
     }
 }
 
@@ -347,5 +347,11 @@ mod test {
     fn test_comp_neq_or_stmt() {
         let result = eval("{{ 1 != 1 or 1 != 2 }}", HashMap::default()).unwrap();
         assert_eq!("true", result.as_str())
+    }
+
+    #[test]
+    fn test_undefined_var_stmt() {
+        let result = eval("{{ a }}", HashMap::default()).unwrap();
+        assert_eq!("Nil", result.as_str())
     }
 }

@@ -8,6 +8,7 @@ pub enum TinyLangTypes {
     String(String),
     Numeric(f64),
     Bool(bool),
+    Nil,
 }
 
 impl Div for TinyLangTypes {
@@ -65,6 +66,7 @@ impl Display for TinyLangTypes {
             TinyLangTypes::Numeric(e) => write!(f, "{}", e),
             TinyLangTypes::String(e) => write!(f, "{}", e),
             TinyLangTypes::Bool(e) => write!(f, "{}", e),
+            TinyLangTypes::Nil => write!(f, "Nil"),
         }
     }
 }
@@ -77,6 +79,7 @@ impl TryInto<f64> for TinyLangTypes {
             TinyLangTypes::String(_) => Err(RuntimeError::InvalidLangType),
             TinyLangTypes::Bool(_) => Err(RuntimeError::InvalidLangType),
             TinyLangTypes::Numeric(f) => Ok(f),
+            TinyLangTypes::Nil => Err(RuntimeError::InvalidLangType),
         }
     }
 }
