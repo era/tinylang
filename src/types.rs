@@ -12,7 +12,7 @@ pub enum TinyLangTypes {
 }
 
 macro_rules! math_operation {
-    ($x:expr, $y:expr, $op:tt) => {{
+    ($x:ident, $y:ident, $op:tt) => {{
         let lhs: f64 = $x.try_into()?;
         let rhs: f64 = $y.try_into()?;
         Ok(TinyLangTypes::Numeric(lhs $op rhs))
