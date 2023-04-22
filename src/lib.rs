@@ -355,4 +355,10 @@ mod test {
         let result = eval("{{ a }}", HashMap::default()).unwrap();
         assert_eq!("Nil", result.as_str())
     }
+
+    #[test]
+    fn test_nil_literal_stmt() {
+        let result = eval("{{ Nil }}", HashMap::default()).unwrap();
+        assert_eq!("Nil", result.as_str())
+    }
 }
