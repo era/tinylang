@@ -117,7 +117,7 @@ fn visit_function_call(mut nodes: Pairs<Rule>, state: &State) -> Result<TinyLang
         let param = visit_exp(node.into_inner(), state)?;
         params.push(param);
     }
-    
+
     match function {
         TinyLangTypes::Function(f) => Ok(f(params)),
         TinyLangTypes::Nil => Err(TinyLangError::RuntimeError(RuntimeError::IdentifierIsNil)),
@@ -402,7 +402,7 @@ mod test {
     }
 
     #[test]
-    fn test_function_call_stmt() {
+    fn test_function_call() {
         // , 2, 3, 3 * 2
         let result = eval(
             "{{ f(1) }}",
