@@ -37,7 +37,12 @@ pub fn eval_wasm(input: &str) -> String {
 static PRATT_PARSER_OP_EXP: Lazy<PrattParser<Rule>> = Lazy::new(|| {
     PrattParser::new()
         .op(Op::infix(Rule::op_and, Assoc::Left) | Op::infix(Rule::op_or, Assoc::Left))
-        .op(Op::infix(Rule::op_eq, Assoc::Left) | Op::infix(Rule::op_neq, Assoc::Left))
+        .op(Op::infix(Rule::op_eq, Assoc::Left)
+            | Op::infix(Rule::op_neq, Assoc::Left)
+            | Op::infix(Rule::op_eg, Assoc::Left)
+            | Op::infix(Rule::op_g, Assoc::Left)
+            | Op::infix(Rule::op_el, Assoc::Left)
+            | Op::infix(Rule::op_l, Assoc::Left))
         .op(Op::infix(Rule::add, Assoc::Left) | Op::infix(Rule::sub, Assoc::Left))
         .op(Op::infix(Rule::mul, Assoc::Left) | Op::infix(Rule::div, Assoc::Left))
         .op(Op::prefix(Rule::neg))
@@ -132,6 +137,10 @@ fn visit_op_exp(pairs: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, Tiny
                 Rule::op_eq => Ok(TinyLangTypes::Bool(lhs? == rhs?)),
                 Rule::op_neq => Ok(TinyLangTypes::Bool(lhs? != rhs?)),
                 Rule::op_and | Rule::op_or => visit_logical_op(op.as_rule(), lhs?, rhs?),
+                Rule::op_eg => Ok(TinyLangTypes::Bool(lhs? >= rhs?)),
+                Rule::op_el => Ok(TinyLangTypes::Bool(lhs? <= rhs?)),
+                Rule::op_g => Ok(TinyLangTypes::Bool(lhs? > rhs?)),
+                Rule::op_l => Ok(TinyLangTypes::Bool(lhs? < rhs?)),
                 _ => unreachable!(),
             };
 
@@ -360,5 +369,17 @@ mod test {
     fn test_nil_literal_stmt() {
         let result = eval("{{ Nil }}", HashMap::default()).unwrap();
         assert_eq!("Nil", result.as_str())
+    }
+
+    #[test]
+    fn test_eg_stmt() {
+        let result = eval("{{ 1 >= 1 }}", HashMap::default()).unwrap();
+        assert_eq!("true", result.as_str())
+    }
+
+    #[test]
+    fn test_g_stmt() {
+        let result = eval("{{ 4 > 1 }}", HashMap::default()).unwrap();
+        assert_eq!("true", result.as_str())
     }
 }

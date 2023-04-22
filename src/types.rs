@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, PartialOrd)]
 pub enum TinyLangTypes {
     String(String),
     Numeric(f64),

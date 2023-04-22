@@ -7,7 +7,7 @@ nil = { "Nil" }
 bool = { "true" | "false" }
 string = { "'" ~ (!"'" ~ ANY)* ~ "'" }
 literal = { numeric | bool | string | nil }
-infix    =  _{ add | sub | mul | div | op_eq | op_neq | op_and | op_or }
+infix    =  _{ add | sub | mul | div | op_eq | op_neq | op_and | op_or| op_eg | op_el | op_g | op_l }
 op_and = { "and" }
 op_or = { "or" }
 add    =   { "+" }
@@ -16,6 +16,10 @@ mul    =   { "*" }
 div    =   { "/" }
 op_eq = { "==" }
 op_neq = { "!=" }
+op_el = { "<=" }
+op_l = { "<" }
+op_eg = { ">=" }
+op_g = { ">"}
 prefix   =  _{ neg }
 neg    =   { "-" }
 identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
