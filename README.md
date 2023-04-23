@@ -14,7 +14,7 @@ WIP
 | Print Statements `{{}}`   | ✅        |
 | Bool, String, Numeric types   | ✅        |
 | if/else   | ✅        |
-| loops   | 🚧        |
+| loops   | ✅        |
 | function calls   | ✅        |
 
 
