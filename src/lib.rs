@@ -11,7 +11,7 @@ use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::thread::current;
+
 
 use crate::errors::{ParseError, RuntimeError, TinyLangError};
 use crate::types::TinyLangTypes;
@@ -22,7 +22,7 @@ struct TemplateLangParser;
 
 type State = HashMap<String, TinyLangTypes>;
 
-use crate::errors::TinyLangError::ParserError;
+
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -64,7 +64,7 @@ struct Runtime<'a> {
 
 impl Runtime<'_> {
     pub fn is_output_enabled(&self) -> bool {
-        (self.should_output.len() != 0 && *(self.should_output.last().unwrap()))
+        (!self.should_output.is_empty() && *(self.should_output.last().unwrap()))
             || self.should_output.is_empty()
     }
 }
@@ -90,11 +90,11 @@ impl Loop<'_> {
 }
 
 pub fn eval(input: &str, mut state: State) -> Result<String, TinyLangError> {
-    let mut pairs = parse(input)?.next().unwrap().into_inner();
-    let mut should_output = Vec::new();
+    let pairs = parse(input)?.next().unwrap().into_inner();
+    let should_output = Vec::new();
     let mut output = String::new();
-    let mut loops: Vec<Loop> = Vec::new();
-    let mut needs_end = Vec::new();
+    let loops: Vec<Loop> = Vec::new();
+    let needs_end = Vec::new();
     let mut runtime = Runtime {
         should_output,
         needs_end,
@@ -110,18 +110,18 @@ pub fn eval(input: &str, mut state: State) -> Result<String, TinyLangError> {
 
 fn process_pair<'a>(
     pair: Pair<'a, Rule>,
-    mut state: &mut State,
-    mut runtime: &mut Runtime<'a>,
+    state: &mut State,
+    runtime: &mut Runtime<'a>,
 ) -> Result<String, TinyLangError> {
     let mut output = String::new();
 
     let cloned_pair = pair.clone();
     // and the end of it (clone) and repeat it while the condition is true
-    let current_output = visit_generic(pair, &mut state, &mut runtime)?;
+    let current_output = visit_generic(pair, state, runtime)?;
     let current_output = match current_output {
         ParseState::Static(s) => s,
-        ParseState::Dynamic(mut l) => {
-            if runtime.loops.len() > 0 {
+        ParseState::Dynamic(l) => {
+            if !runtime.loops.is_empty() {
                 runtime
                     .loops
                     .last_mut()
@@ -130,18 +130,18 @@ fn process_pair<'a>(
                     .extend(l.pairs.clone());
             }
             if runtime.is_output_enabled() {
-                eval_loop(l, &mut state)?
+                eval_loop(l, state)?
             } else {
                 "".into()
             }
         }
     };
-    if (runtime.should_output.len() != 0 && *(runtime.should_output.last().unwrap()))
+    if (!runtime.should_output.is_empty() && *(runtime.should_output.last().unwrap()))
         || runtime.should_output.is_empty()
     {
         output.push_str(&current_output);
     }
-    if runtime.loops.len() > 0 {
+    if !runtime.loops.is_empty() {
         runtime.loops.last_mut().unwrap().pairs.push(cloned_pair);
     }
 
@@ -153,9 +153,9 @@ fn eval_loop(mut loop_struct: Loop, state: &mut State) -> Result<String, TinyLan
     loop_struct.pairs.remove(0);
     while loop_struct.still_valid() {
         state.insert(loop_struct.variable_name.clone(), loop_struct.next());
-        let mut should_output = Vec::new();
-        let mut loops: Vec<Loop> = Vec::new();
-        let mut needs_end = Vec::new();
+        let should_output = Vec::new();
+        let loops: Vec<Loop> = Vec::new();
+        let needs_end = Vec::new();
         let mut runtime = Runtime {
             should_output,
             needs_end,
@@ -173,11 +173,11 @@ fn eval_loop(mut loop_struct: Loop, state: &mut State) -> Result<String, TinyLan
     Ok(output)
 }
 
-fn visit_generic<'a, 'b>(
-    pair: Pair<'a, Rule>,
+fn visit_generic<'a>(
+    pair: Pair<'_, Rule>,
     state: &mut State,
-    runtime: &mut Runtime<'b>,
-) -> Result<ParseState<'b>, TinyLangError> {
+    runtime: &mut Runtime<'a>,
+) -> Result<ParseState<'a>, TinyLangError> {
     let current_output = match (pair.as_rule(), runtime.is_output_enabled()) {
         (Rule::html, true) => pair.as_str().to_string(),
         (Rule::print, true) => visit_print(pair.into_inner(), state)?,
@@ -205,21 +205,21 @@ fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
     TemplateLangParser::parse(Rule::g, input).map_err(|e| ParseError::Generic(e.to_string()))
 }
 
-fn visit_dynamic<'a, 'b>(
-    mut dynamic: Pairs<'b, Rule>,
+fn visit_dynamic<'a>(
+    mut dynamic: Pairs<'_, Rule>,
     state: &mut State,
     runtime: &mut Runtime<'a>,
 ) -> Result<Option<Loop<'a>>, TinyLangError> {
     if let Some(dynamic) = dynamic.next() {
-        match dynamic.as_rule() {
-            Rule::exp => {
+        match (dynamic.as_rule(), runtime.is_output_enabled()) {
+            (Rule::exp, true) => {
                 let _ = visit_exp(dynamic.into_inner(), state)?;
             }
-            Rule::flow_if => {
+            (Rule::flow_if, _) => {
                 runtime.needs_end.push(Rule::flow_if);
                 runtime.should_output.push(visit_if(dynamic, state)?);
             }
-            Rule::flow_else => {
+            (Rule::flow_else, _) => {
                 //handle case where there is a else without if
                 let last_if = match runtime.should_output.pop() {
                     Some(b) => b,
@@ -227,7 +227,7 @@ fn visit_dynamic<'a, 'b>(
                 };
                 runtime.should_output.push(!last_if);
             }
-            Rule::flow_end => {
+            (Rule::flow_end, _) => {
                 let rule = match runtime.needs_end.pop() {
                     Some(b) => b,
                     None => return Err(TinyLangError::ParserError(ParseError::NoMatchingFor)),
@@ -240,12 +240,13 @@ fn visit_dynamic<'a, 'b>(
                     return Ok(eval);
                 }
             }
-            Rule::flow_for => {
+            (Rule::flow_for, _) => {
                 let for_loop = visit_for(dynamic.into_inner(), state)?;
                 runtime.needs_end.push(Rule::flow_for);
                 runtime.should_output.push(for_loop.still_valid());
                 runtime.loops.push(for_loop);
             }
+            (_, false) => (),
             _ => {
                 return Err(ParseError::InvalidNode(format!(
                     "dynamic statement does not accept {:?}",
@@ -271,7 +272,7 @@ fn visit_for<'a>(mut node: Pairs<Rule>, state: &mut State) -> Result<Loop<'a>, T
     let mut loop_struct = Loop {
         current_pos: 0,
         pairs: Vec::new(),
-        original_value: original_value,
+        original_value,
         variable_name: identifier_name.to_string(),
         old_state_for_var: identifier,
     };
@@ -504,7 +505,7 @@ mod test {
     fn test_identifier_print_stmt() {
         let result = eval(
             "{{ a }}",
-            HashMap::from([("a".into(), TinyLangTypes::Numeric(5 as f64))]),
+            HashMap::from([("a".into(), TinyLangTypes::Numeric(5_f64))]),
         )
         .unwrap();
         assert_eq!("5", result.as_str())
@@ -514,7 +515,7 @@ mod test {
     fn test_identifier_math_print_stmt() {
         let result = eval(
             "{{ a * 2 + a}}",
-            HashMap::from([("a".into(), TinyLangTypes::Numeric(5 as f64))]),
+            HashMap::from([("a".into(), TinyLangTypes::Numeric(5_f64))]),
         )
         .unwrap();
         assert_eq!("15", result.as_str())
@@ -716,7 +717,7 @@ mod test {
             )]),
         )
         .unwrap();
-        assert_eq!(expected.replace(" ", ""), result.replace(" ", ""))
+        assert_eq!(expected.replace(' ', ""), result.replace(' ', ""))
     }
 
     #[test]
@@ -752,6 +753,6 @@ mod test {
             )]),
         )
         .unwrap();
-        assert_eq!(expected.replace(" ", ""), result.replace(" ", ""))
+        assert_eq!(expected.replace(' ', ""), result.replace(' ', ""))
     }
 }
