@@ -20,6 +20,7 @@ struct TemplateLangParser;
 
 type State = HashMap<String, TinyLangTypes>;
 
+use crate::errors::TinyLangError::ParserError;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -49,31 +50,94 @@ static PRATT_PARSER_OP_EXP: Lazy<PrattParser<Rule>> = Lazy::new(|| {
 });
 
 pub fn eval(input: &str, state: State) -> Result<String, TinyLangError> {
-    let pairs = parse(input)?.next().unwrap().into_inner();
+    let mut pairs = parse(input)?.next().unwrap().into_inner();
+    let mut should_output = Vec::new();
 
     let mut output = String::new();
 
     for pair in pairs {
-        let current_output = match pair.as_rule() {
-            Rule::html => pair.as_str().to_string(),
-            Rule::print => visit_print(pair.into_inner(), &state)?,
-            Rule::invalid => {
-                return Err(TinyLangError::ParserError(ParseError::InvalidNode(
-                    format!("Invalid exp: {}", pair.as_span().as_str()),
-                )))
-            }
-            _ => todo!(),
-        };
-        output.push_str(&current_output);
+        let current_output = visit_generic(pair, &state, &mut should_output)?;
+        if (should_output.len() != 0 && *(should_output.last().unwrap()))
+            || should_output.is_empty()
+        {
+            output.push_str(&current_output);
+        }
     }
 
     Ok(output)
+}
+
+fn visit_generic(
+    pair: Pair<Rule>,
+    state: &State,
+    should_output: &mut Vec<bool>,
+) -> Result<String, TinyLangError> {
+    let current_output = match pair.as_rule() {
+        Rule::html => pair.as_str().to_string(),
+        Rule::print => visit_print(pair.into_inner(), &state)?,
+        Rule::dynamic => visit_dynamic(pair.into_inner(), &state, should_output)?,
+        Rule::invalid => {
+            return Err(TinyLangError::ParserError(ParseError::InvalidNode(
+                format!("Invalid exp: {}", pair.as_span().as_str()),
+            )))
+        }
+        _ => todo!(),
+    };
+    Ok(current_output)
 }
 
 fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
     // this is G which contains children which are
     // either html chars, print statements or dynamic statements
     TemplateLangParser::parse(Rule::g, input).map_err(|e| ParseError::Generic(e.to_string()))
+}
+
+fn visit_dynamic(
+    mut dynamic: Pairs<Rule>,
+    state: &State,
+    should_output: &mut Vec<bool>,
+) -> Result<String, TinyLangError> {
+    let mut result = String::new();
+
+    if let Some(dynamic) = dynamic.next() {
+        match dynamic.as_rule() {
+            Rule::exp => {
+                let _ = visit_exp(dynamic.into_inner(), state)?;
+            }
+            Rule::flow_if => {
+                should_output.push(visit_if(dynamic, state)?);
+            }
+            Rule::flow_else => {
+                //handle case where there is a else without if
+                let last_if = match should_output.pop() {
+                    Some(b) => b,
+                    None => return Err(TinyLangError::ParserError(ParseError::NoMatchingIf)),
+                };
+                should_output.push(!last_if);
+            }
+            Rule::flow_end => {
+                should_output.pop();
+            }
+            _ => {
+                return Err(ParseError::InvalidNode(format!(
+                    "dynamic statement does not accept {:?}",
+                    dynamic
+                ))
+                .into())
+            }
+        };
+    }
+
+    Ok(result)
+}
+
+fn visit_if(node_if: Pair<Rule>, state: &State) -> Result<bool, TinyLangError> {
+    let condition = match visit_exp(node_if.into_inner(), state)? {
+        TinyLangTypes::Bool(b) => b,
+        _ => return Err(TinyLangError::RuntimeError(RuntimeError::ExpectingBool)),
+    };
+
+    Ok(condition)
 }
 
 fn visit_print(node: Pairs<Rule>, state: &State) -> Result<String, TinyLangError> {
@@ -101,6 +165,7 @@ fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLang
         Rule::op_exp => visit_op_exp(first_child.into_inner(), state),
         Rule::identifier => visit_identifier(first_child, state),
         Rule::function_call => visit_function_call(first_child.into_inner(), state),
+        Rule::exp => visit_exp(first_child.into_inner(), state),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_exp was called with an invalid node {:?}",
             first_child
@@ -109,7 +174,10 @@ fn visit_exp(node: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLang
     }
 }
 
-fn visit_function_call(mut nodes: Pairs<Rule>, state: &State) -> Result<TinyLangTypes, TinyLangError> {
+fn visit_function_call(
+    mut nodes: Pairs<Rule>,
+    state: &State,
+) -> Result<TinyLangTypes, TinyLangError> {
     let function = visit_identifier(nodes.next().unwrap(), state)?;
     let mut params = Vec::new();
 
@@ -413,5 +481,66 @@ mod test {
         )
         .unwrap();
         assert_eq!("1", result.as_str())
+    }
+
+    #[test]
+    fn test_function_dyn_call() {
+        // , 2, 3, 3 * 2
+        let result = eval(
+            "{% f(1) %}",
+            HashMap::from([(
+                "f".into(),
+                TinyLangTypes::Function(Arc::new(Box::new(|args| args.get(0).unwrap().clone()))),
+            )]),
+        )
+        .unwrap();
+        assert_eq!("", result.as_str())
+    }
+
+    #[test]
+    fn test_if() {
+        let template = r#"
+        {% if 1 == 1 %}
+        this is true
+        {% end %}
+        abc
+        "#;
+        let expected = r#"this is true
+        abc
+        "#;
+        let result = eval(template, HashMap::default()).unwrap();
+        assert_eq!(expected, result.as_str())
+    }
+
+    #[test]
+    fn test_if_else() {
+        let template = r#"
+        {% if 1 != 1 %}
+        this is true
+        {%else%}
+        over here
+        {% end %}
+        abc
+        "#;
+        let expected = r#"over here
+        abc
+        "#;
+        let result = eval(template, HashMap::default()).unwrap();
+        assert_eq!(expected, result.as_str())
+    }
+
+    #[test]
+    fn test_else_without_if() {
+        let template = r#"
+        {%else%}
+        over here
+        {% end %}
+        abc
+        "#;
+        let result = eval(template, HashMap::default());
+        assert_eq!(
+            Err(TinyLangError::ParserError(ParseError::NoMatchingIf)),
+            result
+        );
     }
 }

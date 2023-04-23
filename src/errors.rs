@@ -32,6 +32,8 @@ pub enum RuntimeError {
     ExpectingNumber,
     #[error("Identifier is Nil")]
     IdentifierIsNil,
+    #[error("conditions on a if must result in a bool")]
+    ExpectingBool,
 }
 
 #[derive(Debug, Error, PartialEq)]
@@ -40,4 +42,6 @@ pub enum ParseError {
     Generic(String),
     #[error("Invalid node type {0:?}")]
     InvalidNode(String),
+    #[error("There is no matching if for the else")]
+    NoMatchingIf,
 }

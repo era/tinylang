@@ -15,7 +15,7 @@ WIP
 | Bool, String, Numeric types   | ✅        |
 | if/else   | 🚧        |
 | loops   | 🚧        |
-| function calls   | 🚧        |
+| function calls   | ✅        |
 
 
 ## Examples
