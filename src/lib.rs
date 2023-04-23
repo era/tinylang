@@ -56,6 +56,12 @@ enum ParseState<'a> {
     Dynamic(Loop<'a>),
 }
 
+struct Runtime<'a> {
+    should_output: Vec<bool>,
+    needs_end: Vec<Rule>,
+    loops: Vec<Loop<'a>>,
+}
+
 struct Loop<'a> {
     variable_name: String,
     current_pos: usize,
@@ -79,45 +85,57 @@ impl Loop<'_> {
 pub fn eval(input: &str, mut state: State) -> Result<String, TinyLangError> {
     let mut pairs = parse(input)?.next().unwrap().into_inner();
     let mut should_output = Vec::new();
-
     let mut output = String::new();
-
     let mut loops: Vec<Loop> = Vec::new();
     let mut needs_end = Vec::new();
+    let mut runtime = Runtime {
+        should_output,
+        needs_end,
+        loops,
+    };
 
     for pair in pairs {
-        let cloned_pair = pair.clone();
-        // and the end of it (clone) and repeat it while the condition is true
-        let current_output = visit_generic(
-            pair,
-            &mut state,
-            &mut should_output,
-            &mut needs_end,
-            &mut loops,
-        )?;
-        let current_output = match current_output {
-            ParseState::Static(s) => s,
-            ParseState::Dynamic(mut l) => {
-                if loops.len() > 0 {
-                    loops.last_mut().unwrap().pairs.extend(l.pairs.clone());
-                }
-                if (should_output.len() != 0 && *(should_output.last().unwrap()))
-                    || should_output.is_empty()
-                {
-                    eval_loop(l, &mut state)?
-                } else {
-                    "".into()
-                }
+        output.push_str(&process_pair(pair, &mut state, &mut runtime)?);
+    }
+
+    Ok(output)
+}
+
+fn process_pair<'a>(pair: Pair<'a, Rule>,
+                        mut state: &mut State,
+                        mut runtime: &mut Runtime<'a>) -> Result<String, TinyLangError> {
+    let mut output = String::new();
+
+    let cloned_pair = pair.clone();
+    // and the end of it (clone) and repeat it while the condition is true
+    let current_output = visit_generic(pair, &mut state, &mut runtime)?;
+    let current_output = match current_output {
+        ParseState::Static(s) => s,
+        ParseState::Dynamic(mut l) => {
+            if runtime.loops.len() > 0 {
+                runtime
+                    .loops
+                    .last_mut()
+                    .unwrap()
+                    .pairs
+                    .extend(l.pairs.clone());
             }
-        };
-        if (should_output.len() != 0 && *(should_output.last().unwrap()))
-            || should_output.is_empty()
-        {
-            output.push_str(&current_output);
+            if (runtime.should_output.len() != 0 && *(runtime.should_output.last().unwrap()))
+                || runtime.should_output.is_empty()
+            {
+                eval_loop(l, &mut state)?
+            } else {
+                "".into()
+            }
         }
-        if loops.len() > 0 {
-            loops.last_mut().unwrap().pairs.push(cloned_pair);
-        }
+    };
+    if (runtime.should_output.len() != 0 && *(runtime.should_output.last().unwrap()))
+        || runtime.should_output.is_empty()
+    {
+        output.push_str(&current_output);
+    }
+    if runtime.loops.len() > 0 {
+        runtime.loops.last_mut().unwrap().pairs.push(cloned_pair);
     }
 
     Ok(output)
@@ -129,60 +147,32 @@ fn eval_loop(mut loop_struct: Loop, state: &mut State) -> Result<String, TinyLan
     while loop_struct.still_valid() {
         state.insert(loop_struct.variable_name.clone(), loop_struct.next());
         let mut should_output = Vec::new();
-
         let mut loops: Vec<Loop> = Vec::new();
         let mut needs_end = Vec::new();
-        for pair in &loop_struct.pairs {
-            let cloned_pair = pair.clone();
+        let mut runtime = Runtime {
+            should_output,
+            needs_end,
+            loops,
+        };
 
-            // and the end of it (clone) and repeat it while the condition is true
-            let current_output = visit_generic(
-                pair.clone(),
-                state,
-                &mut should_output,
-                &mut needs_end,
-                &mut loops,
-            )?;
-            let current_output = match current_output {
-                ParseState::Static(s) => s,
-                ParseState::Dynamic(mut l) => {
-                    if loops.len() > 0 {
-                        loops.last_mut().unwrap().pairs.extend(l.pairs.clone());
-                    }
-                    if (should_output.len() != 0 && *(should_output.last().unwrap()))
-                        || should_output.is_empty()
-                    {
-                        eval_loop(l, state)?
-                    } else {
-                        "".into()
-                    }
-                }
-            };
-            if (should_output.len() != 0 && *(should_output.last().unwrap()))
-                || should_output.is_empty()
-            {
-                output.push_str(&current_output);
-            }
-            if loops.len() > 0 {
-                loops.last_mut().unwrap().pairs.push(cloned_pair);
-            }
+        for pair in &loop_struct.pairs {
+            output.push_str(&process_pair(pair.clone(), state, &mut runtime)?);
         }
     }
+    state.insert(loop_struct.variable_name.clone(), loop_struct.old_state_for_var);
     Ok(output)
 }
 
-fn visit_generic<'a>(
+fn visit_generic<'a, 'b>(
     pair: Pair<'a, Rule>,
     state: &mut State,
-    should_output: &mut Vec<bool>,
-    needs_end: &mut Vec<Rule>,
-    loops: &mut Vec<Loop<'a>>,
-) -> Result<ParseState<'a>, TinyLangError> {
+    runtime: &mut Runtime<'b>,
+) -> Result<ParseState<'b>, TinyLangError> {
     let current_output = match pair.as_rule() {
         Rule::html => pair.as_str().to_string(),
         Rule::print => visit_print(pair.into_inner(), state)?,
         Rule::dynamic => {
-            let result = visit_dynamic(pair.into_inner(), state, should_output, needs_end, loops)?;
+            let result = visit_dynamic(pair.into_inner(), state, runtime)?;
             match result {
                 Some(l) => return Ok(ParseState::Dynamic(l)),
                 None => "".into(),
@@ -193,7 +183,7 @@ fn visit_generic<'a>(
                 format!("Invalid exp: {}", pair.as_span().as_str()),
             )))
         }
-        _ => todo!(),
+        _ => unreachable!(),
     };
     Ok(ParseState::Static(current_output))
 }
@@ -204,12 +194,10 @@ fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
     TemplateLangParser::parse(Rule::g, input).map_err(|e| ParseError::Generic(e.to_string()))
 }
 
-fn visit_dynamic<'a>(
-    mut dynamic: Pairs<'a, Rule>,
+fn visit_dynamic<'a, 'b>(
+    mut dynamic: Pairs<'b, Rule>,
     state: &mut State,
-    should_output: &mut Vec<bool>,
-    needs_end: &mut Vec<Rule>,
-    loops: &mut Vec<Loop<'a>>,
+    runtime: &mut Runtime<'a>,
 ) -> Result<Option<Loop<'a>>, TinyLangError> {
     if let Some(dynamic) = dynamic.next() {
         match dynamic.as_rule() {
@@ -217,35 +205,35 @@ fn visit_dynamic<'a>(
                 let _ = visit_exp(dynamic.into_inner(), state)?;
             }
             Rule::flow_if => {
-                needs_end.push(Rule::flow_if);
-                should_output.push(visit_if(dynamic, state)?);
+                runtime.needs_end.push(Rule::flow_if);
+                runtime.should_output.push(visit_if(dynamic, state)?);
             }
             Rule::flow_else => {
                 //handle case where there is a else without if
-                let last_if = match should_output.pop() {
+                let last_if = match runtime.should_output.pop() {
                     Some(b) => b,
                     None => return Err(TinyLangError::ParserError(ParseError::NoMatchingIf)),
                 };
-                should_output.push(!last_if);
+                runtime.should_output.push(!last_if);
             }
             Rule::flow_end => {
-                let rule = match needs_end.pop() {
+                let rule = match runtime.needs_end.pop() {
                     Some(b) => b,
                     None => return Err(TinyLangError::ParserError(ParseError::NoMatchingFor)),
                 };
                 if rule == Rule::flow_if {
-                    should_output.pop();
+                    runtime.should_output.pop();
                 } else {
-                    should_output.pop();
-                    let eval = loops.pop();
+                    runtime.should_output.pop();
+                    let eval = runtime.loops.pop();
                     return Ok(eval);
                 }
             }
             Rule::flow_for => {
                 let for_loop = visit_for(dynamic.into_inner(), state)?;
-                needs_end.push(Rule::flow_for);
-                should_output.push(for_loop.still_valid());
-                loops.push(for_loop);
+                runtime.needs_end.push(Rule::flow_for);
+                runtime.should_output.push(for_loop.still_valid());
+                runtime.loops.push(for_loop);
             }
             _ => {
                 return Err(ParseError::InvalidNode(format!(

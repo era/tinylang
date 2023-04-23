@@ -13,8 +13,8 @@ WIP
 | Logical operators| ✅        |
 | Print Statements `{{}}`   | ✅        |
 | Bool, String, Numeric types   | ✅        |
-| if/else   | ✅        |
-| loops   | ✅        |
+| if/else   | 🚧        |
+| loops   | 🚧        |
 | function calls   | ✅        |
 
 
