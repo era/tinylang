@@ -62,6 +62,13 @@ struct Runtime<'a> {
     loops: Vec<Loop<'a>>,
 }
 
+impl Runtime<'_> {
+    pub fn is_output_enabled(&self) -> bool {
+        (self.should_output.len() != 0 && *(self.should_output.last().unwrap()))
+            || self.should_output.is_empty()
+    }
+}
+
 struct Loop<'a> {
     variable_name: String,
     current_pos: usize,
@@ -101,9 +108,11 @@ pub fn eval(input: &str, mut state: State) -> Result<String, TinyLangError> {
     Ok(output)
 }
 
-fn process_pair<'a>(pair: Pair<'a, Rule>,
-                        mut state: &mut State,
-                        mut runtime: &mut Runtime<'a>) -> Result<String, TinyLangError> {
+fn process_pair<'a>(
+    pair: Pair<'a, Rule>,
+    mut state: &mut State,
+    mut runtime: &mut Runtime<'a>,
+) -> Result<String, TinyLangError> {
     let mut output = String::new();
 
     let cloned_pair = pair.clone();
@@ -120,9 +129,7 @@ fn process_pair<'a>(pair: Pair<'a, Rule>,
                     .pairs
                     .extend(l.pairs.clone());
             }
-            if (runtime.should_output.len() != 0 && *(runtime.should_output.last().unwrap()))
-                || runtime.should_output.is_empty()
-            {
+            if runtime.is_output_enabled() {
                 eval_loop(l, &mut state)?
             } else {
                 "".into()
@@ -159,7 +166,10 @@ fn eval_loop(mut loop_struct: Loop, state: &mut State) -> Result<String, TinyLan
             output.push_str(&process_pair(pair.clone(), state, &mut runtime)?);
         }
     }
-    state.insert(loop_struct.variable_name.clone(), loop_struct.old_state_for_var);
+    state.insert(
+        loop_struct.variable_name.clone(),
+        loop_struct.old_state_for_var,
+    );
     Ok(output)
 }
 
@@ -168,21 +178,22 @@ fn visit_generic<'a, 'b>(
     state: &mut State,
     runtime: &mut Runtime<'b>,
 ) -> Result<ParseState<'b>, TinyLangError> {
-    let current_output = match pair.as_rule() {
-        Rule::html => pair.as_str().to_string(),
-        Rule::print => visit_print(pair.into_inner(), state)?,
-        Rule::dynamic => {
+    let current_output = match (pair.as_rule(), runtime.is_output_enabled()) {
+        (Rule::html, true) => pair.as_str().to_string(),
+        (Rule::print, true) => visit_print(pair.into_inner(), state)?,
+        (Rule::dynamic, _) => {
             let result = visit_dynamic(pair.into_inner(), state, runtime)?;
             match result {
                 Some(l) => return Ok(ParseState::Dynamic(l)),
                 None => "".into(),
             }
         }
-        Rule::invalid => {
+        (Rule::invalid, _) => {
             return Err(TinyLangError::ParserError(ParseError::InvalidNode(
                 format!("Invalid exp: {}", pair.as_span().as_str()),
             )))
         }
+        (_, false) => "".into(),
         _ => unreachable!(),
     };
     Ok(ParseState::Static(current_output))
