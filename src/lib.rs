@@ -12,7 +12,6 @@ use pest::Parser;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-
 use crate::errors::{ParseError, RuntimeError, TinyLangError};
 use crate::types::TinyLangTypes;
 
@@ -21,7 +20,6 @@ use crate::types::TinyLangTypes;
 struct TemplateLangParser;
 
 type State = HashMap<String, TinyLangTypes>;
-
 
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -136,9 +134,7 @@ fn process_pair<'a>(
             }
         }
     };
-    if (!runtime.should_output.is_empty() && *(runtime.should_output.last().unwrap()))
-        || runtime.should_output.is_empty()
-    {
+    if runtime.is_output_enabled() {
         output.push_str(&current_output);
     }
     if !runtime.loops.is_empty() {
