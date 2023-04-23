@@ -44,4 +44,6 @@ pub enum ParseError {
     InvalidNode(String),
     #[error("There is no matching if for the else")]
     NoMatchingIf,
+    #[error("There is no matching end for the loop")]
+    NoMatchingFor,
 }

@@ -13,6 +13,7 @@ pub enum TinyLangTypes {
     Numeric(f64),
     Bool(bool),
     Function(Arc<Box<dyn Fn(FuncArguments) -> TinyLangTypes>>),
+    Vec(Arc<Vec<TinyLangTypes>>),
     Nil,
 }
 
@@ -22,6 +23,7 @@ impl PartialEq for TinyLangTypes {
             (TinyLangTypes::String(a), TinyLangTypes::String(b)) => a == b,
             (TinyLangTypes::Numeric(a), TinyLangTypes::Numeric(b)) => a == b,
             (TinyLangTypes::Bool(a), TinyLangTypes::Bool(b)) => a == b,
+            (TinyLangTypes::Vec(a), TinyLangTypes::Vec(b)) => a == b,
             // Ignore the Function variant in the comparison
             (TinyLangTypes::Nil, TinyLangTypes::Nil) => true,
             _ => false,
@@ -99,6 +101,7 @@ impl Display for TinyLangTypes {
             TinyLangTypes::Bool(e) => write!(f, "{}", e),
             TinyLangTypes::Nil => write!(f, "Nil"),
             TinyLangTypes::Function(_) => write!(f, "Function"),
+            TinyLangTypes::Vec(v) => write!(f, "Vector with {}", v.len()),
         }
     }
 }
@@ -108,11 +111,8 @@ impl TryInto<f64> for TinyLangTypes {
 
     fn try_into(self) -> Result<f64, Self::Error> {
         match self {
-            TinyLangTypes::String(_) => Err(RuntimeError::InvalidLangType),
-            TinyLangTypes::Bool(_) => Err(RuntimeError::InvalidLangType),
             TinyLangTypes::Numeric(f) => Ok(f),
-            TinyLangTypes::Nil => Err(RuntimeError::InvalidLangType),
-            TinyLangTypes::Function(_) => Err(RuntimeError::InvalidLangType),
+            _ => Err(RuntimeError::InvalidLangType),
         }
     }
 }
