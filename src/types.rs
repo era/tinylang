@@ -7,12 +7,22 @@ use std::sync::Arc;
 
 pub type FuncArguments = Vec<TinyLangTypes>;
 
+
+/// Represents the types supported by the template
 #[derive(Clone)]
 pub enum TinyLangTypes {
     String(String),
+    /// any integer or float is represented as a f64
     Numeric(f64),
     Bool(bool),
+    /// Any function will receive the parameters as an array
+    /// so sum(1, 2, 3, 4) will be transformed as a vec![1, 2, 3, 4])
+    /// all functions must return a TinyLangTypes, if yours does not return
+    /// anything use the TinyLangTypes::Nil type.
+    /// Users cannot declare functions inside the template file.
     Function(Arc<Box<dyn Fn(FuncArguments) -> TinyLangTypes>>),
+    /// Represents a Vector to be iterated using the for loop
+    /// it cannot be created inside the template file.
     Vec(Arc<Vec<TinyLangTypes>>),
     Nil,
 }

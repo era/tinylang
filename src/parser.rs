@@ -70,7 +70,19 @@ impl Loop<'_> {
         next.unwrap().clone()
     }
 }
-
+/// eval receives the &str to parse and the State.
+/// You should put in the State any function or variable that your templates
+/// should have access to.
+/// Important to know that there is only one global scope. For loops may overwrite
+/// variables outside of it.
+/// For now there is no construct to assign new values to variables besides for loops.
+///
+/// Any char will be in the Result unless it's a "dynamic" or a "print".
+/// You can use `{{ 1 }}` to print any expression. Or you can use
+/// `{% if expression %} {% else %} {% end %}` to control the template display.
+/// You can use `{% for item in array %} {% end %}`.
+///
+/// Check `crate::types::TinyLangTypes` for details of all the types build-in the language.
 pub fn eval(input: &str, mut state: State) -> Result<String, TinyLangError> {
     let pairs = parse(input)?.next().unwrap().into_inner();
     let should_output = Vec::new();
