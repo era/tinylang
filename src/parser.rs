@@ -108,7 +108,7 @@ fn process_pair<'a>(
     runtime: &mut Runtime<'a>,
 ) -> Result<Cow<'a, str>, TinyLangError> {
     let cloned_pair = pair.clone();
-    // and the end of it (clone) and repeat it while the condition is true
+
     let current_output = visit_generic(pair, state, runtime)?;
     let current_output = match current_output {
         ParseState::Static(s) => s,
