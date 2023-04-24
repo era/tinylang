@@ -231,6 +231,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "gloo-utils"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8e8fc851e9c7b9852508bc6e3f690f452f474417e8545ec9857b7f7377036b5"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "half"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -604,9 +617,12 @@ name = "tinylang"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "gloo-utils",
  "once_cell",
  "pest",
  "pest_derive",
+ "serde",
+ "serde_json",
  "thiserror",
  "wasm-bindgen",
 ]

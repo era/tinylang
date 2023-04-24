@@ -1,5 +1,11 @@
 pub mod errors;
 pub mod types;
+#[cfg(target_family = "wasm")]
+mod wasm;
+mod parser;
+
+#[cfg(target_family = "wasm")]
+pub use wasm::eval_wasm;
 
 extern crate pest;
 #[macro_use]
@@ -21,18 +27,6 @@ use crate::types::TinyLangTypes;
 struct TemplateLangParser;
 
 type State = HashMap<String, TinyLangTypes>;
-
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
-
-#[cfg(target_family = "wasm")]
-#[wasm_bindgen]
-pub fn eval_wasm(input: &str) -> String {
-    match eval(input, HashMap::default()) {
-        Ok(s) => s,
-        Err(e) => e.to_string(),
-    }
-}
 
 const EMPTY_STRING_COW: Cow<str> = Cow::Borrowed("");
 
@@ -114,7 +108,7 @@ fn process_pair<'a>(
     state: &mut State,
     runtime: &mut Runtime<'a>,
 ) -> Result<Cow<'a, str>, TinyLangError> {
-    
+
     let cloned_pair = pair.clone();
     // and the end of it (clone) and repeat it while the condition is true
     let current_output = visit_generic(pair, state, runtime)?;
