@@ -5,6 +5,7 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
+use std::borrow::Cow;
 use once_cell::sync::Lazy;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
@@ -33,6 +34,8 @@ pub fn eval_wasm(input: &str) -> String {
     }
 }
 
+const EMPTY_STRING_COW: Cow<str> = Cow::Borrowed("");
+
 // explanation on Pratt parsers in Rust:
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 static PRATT_PARSER_OP_EXP: Lazy<PrattParser<Rule>> = Lazy::new(|| {
@@ -50,7 +53,7 @@ static PRATT_PARSER_OP_EXP: Lazy<PrattParser<Rule>> = Lazy::new(|| {
 });
 
 enum ParseState<'a> {
-    Static(String),
+    Static(Cow<'a, str>),
     Dynamic(Loop<'a>),
 }
 
@@ -110,9 +113,8 @@ fn process_pair<'a>(
     pair: Pair<'a, Rule>,
     state: &mut State,
     runtime: &mut Runtime<'a>,
-) -> Result<String, TinyLangError> {
-    let mut output = String::new();
-
+) -> Result<Cow<'a, str>, TinyLangError> {
+    
     let cloned_pair = pair.clone();
     // and the end of it (clone) and repeat it while the condition is true
     let current_output = visit_generic(pair, state, runtime)?;
@@ -130,21 +132,23 @@ fn process_pair<'a>(
             if runtime.is_output_enabled() {
                 eval_loop(l, state)?
             } else {
-                "".into()
+                EMPTY_STRING_COW
             }
         }
     };
-    if runtime.is_output_enabled() {
-        output.push_str(&current_output);
-    }
     if !runtime.loops.is_empty() {
         runtime.loops.last_mut().unwrap().pairs.push(cloned_pair);
     }
+    if runtime.is_output_enabled() {
+        return Ok(current_output.into())
+    } else {
+        Ok(EMPTY_STRING_COW)
+    }
 
-    Ok(output)
+
 }
 
-fn eval_loop(mut loop_struct: Loop, state: &mut State) -> Result<String, TinyLangError> {
+fn eval_loop<'a>(mut loop_struct: Loop<'a>, state: &mut State) -> Result<Cow<'a, str>, TinyLangError> {
     let mut output = String::new();
     loop_struct.pairs.remove(0);
     while loop_struct.still_valid() {
@@ -166,22 +170,22 @@ fn eval_loop(mut loop_struct: Loop, state: &mut State) -> Result<String, TinyLan
         loop_struct.variable_name.clone(),
         loop_struct.old_state_for_var,
     );
-    Ok(output)
+    Ok(output.into())
 }
 
 fn visit_generic<'a>(
-    pair: Pair<'_, Rule>,
+    pair: Pair<'a, Rule>,
     state: &mut State,
     runtime: &mut Runtime<'a>,
 ) -> Result<ParseState<'a>, TinyLangError> {
     let current_output = match (pair.as_rule(), runtime.is_output_enabled()) {
-        (Rule::html, true) => pair.as_str().to_string(),
-        (Rule::print, true) => visit_print(pair.into_inner(), state)?,
+        (Rule::html, true) => pair.as_str().into(),
+        (Rule::print, true) => visit_print(pair.into_inner(), state)?.into(),
         (Rule::dynamic, _) => {
             let result = visit_dynamic(pair.into_inner(), state, runtime)?;
             match result {
                 Some(l) => return Ok(ParseState::Dynamic(l)),
-                None => "".into(),
+                None => EMPTY_STRING_COW,
             }
         }
         (Rule::invalid, _) => {
@@ -189,7 +193,7 @@ fn visit_generic<'a>(
                 format!("Invalid exp: {}", pair.as_span().as_str()),
             )))
         }
-        (_, false) => "".into(),
+        (_, false) => EMPTY_STRING_COW,
         _ => unreachable!(),
     };
     Ok(ParseState::Static(current_output))
@@ -287,22 +291,20 @@ fn visit_if(node_if: Pair<Rule>, state: &mut State) -> Result<bool, TinyLangErro
     Ok(condition)
 }
 
-fn visit_print(node: Pairs<Rule>, state: &mut State) -> Result<String, TinyLangError> {
-    let mut result = String::new();
-    for child in node {
-        let child_result = match child.as_rule() {
-            Rule::exp => visit_exp(child.into_inner(), state)?,
-            _ => {
-                return Err(ParseError::InvalidNode(format!(
-                    "print statement does not accept {:?}",
-                    child
-                ))
-                .into())
-            }
-        };
-        result.push_str(&child_result.to_string());
-    }
-    Ok(result)
+fn visit_print(mut node: Pairs<Rule>, state: &mut State) -> Result<String, TinyLangError> {
+    let child = node.next().unwrap();
+    let print_value = match child.as_rule() {
+        Rule::exp => visit_exp(child.into_inner(), state)?,
+        _ => {
+            return Err(ParseError::InvalidNode(format!(
+                "print statement does not accept {:?}",
+                child
+            ))
+            .into())
+        }
+    };
+
+    Ok(print_value.to_string())
 }
 
 fn visit_exp(node: Pairs<Rule>, state: &mut State) -> Result<TinyLangTypes, TinyLangError> {

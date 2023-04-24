@@ -34,7 +34,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
     });
 
-    let template = read_file_to_string(TEMPLATE).unwrap();
+    let template = read_file_to_string(TEMPLATE_NO_FOR).unwrap();
     let template_str = template.as_str();
 
     c.bench_function("basic_template_parse_no_state", move |b| {
