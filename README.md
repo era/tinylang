@@ -6,17 +6,21 @@ TinyLang is a simple template language done while streaming at twitch with @Karr
 
 WIP
 
-| Syntax      | State |
-| ----------- | ----------- |
-| HTML        | ✅       |
-| Variables   | ✅        |
-| Logical operators| ✅        |
-| Print Statements `{{}}`   | ✅        |
-| Bool, String, Numeric types   | ✅        |
-| if/else   | 🚧        |
-| loops   | 🚧        |
-| function calls   | ✅        |
+| Feature      | State | Syntax |
+| ----------- | ----------- | ----------- |
+| HTML        | ✅       | `any char`|
+| Variables   | ✅        |  lowercase alphanumeric e.g. (`myvar`)|
+| Logical operators| ✅        | `and`, `or`|
+| Print Statements `{{}}`   | ✅        | `{{ 1 + 2 + 3 }}`|
+| Bool, String, Numeric types   | ✅        | `true`, `false`, `'a string'`, `3`|
+| if/else   | ✅       | `{% if true %}` `{% else %}`  `{% end %}`|
+| loops   | 🚧        | `{%for item in array %}` `{% end %}`|
+| function calls   | ✅        | `my_function('abc')`|
 
+### Other things missing
+
+- Benchmarks
+- Documentation
 
 ## Examples
 
@@ -25,6 +29,11 @@ Anything not inside `{{ }}` (print statement) and `{% %}` (dynamic statement) wi
 The language support:
 
 Numbers (integers and floats), String (e.g. `'a string'`), bool (`true` and `false`).
+
+## Using as a library
+
+You can call the `eval` method which receives the `&str` and the `State` (variables and functions). It returns
+the parsed string or an error.
 
 
 You can also try it out at: https://tinylang.elias.tools
