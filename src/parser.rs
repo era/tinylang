@@ -122,7 +122,7 @@ fn process_pair<'a>(
                     .extend(l.pairs.clone());
             }
             if runtime.is_output_enabled() {
-                eval_loop(l, state)?
+                replay_loop(l, state)?
             } else {
                 EMPTY_STRING_COW
             }
@@ -138,7 +138,7 @@ fn process_pair<'a>(
     }
 }
 
-fn eval_loop<'a>(
+fn replay_loop<'a>(
     mut loop_struct: Loop<'a>,
     state: &mut State,
 ) -> Result<Cow<'a, str>, TinyLangError> {
@@ -229,8 +229,8 @@ fn visit_dynamic<'a>(
                     runtime.should_output.pop();
                 } else {
                     runtime.should_output.pop();
-                    let eval = runtime.loops.pop();
-                    return Ok(eval);
+                    let loop_struct = runtime.loops.pop();
+                    return Ok(loop_struct);
                 }
             }
             (Rule::flow_for, _) => {
