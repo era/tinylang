@@ -7,7 +7,8 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 pub type FuncArguments = Vec<TinyLangTypes>;
-
+pub type Function = dyn Fn(FuncArguments, &HashMap<String, TinyLangTypes>) -> TinyLangTypes;
+pub type State = HashMap<String, TinyLangTypes>;
 
 /// Represents the types supported by the template
 #[derive(Clone)]
@@ -17,12 +18,12 @@ pub enum TinyLangTypes {
     Numeric(f64),
     Bool(bool),
     /// Any function will receive the parameters as an array
-    /// so sum(1, 2, 3, 4) will be transformed as a vec![1, 2, 3, 4])
+    /// so sum(1, 2, 3, 4) will be transformed as sum(vec![1, 2, 3, 4])
     /// all functions must return a TinyLangTypes, if yours does not return
     /// anything use the TinyLangTypes::Nil type.
     /// Users cannot declare functions inside the template file.
     /// The function also receives the global state
-    Function(Arc<Box<dyn Fn(FuncArguments, &HashMap<String, TinyLangTypes>) -> TinyLangTypes>>),
+    Function(Arc<Box<Function>>),
     /// Represents a Vector to be iterated using the for loop
     /// it cannot be created inside the template file.
     Vec(Arc<Vec<TinyLangTypes>>),

@@ -3,17 +3,14 @@ use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::errors::{ParseError, RuntimeError, TinyLangError};
-use crate::types::TinyLangTypes;
+use crate::types::{State, TinyLangTypes};
 
 #[derive(Parser)]
 #[grammar = "../grammar/template_lang.pest"]
 struct TemplateLangParser;
-
-type State = HashMap<String, TinyLangTypes>;
 
 const EMPTY_STRING_COW: Cow<str> = Cow::Borrowed("");
 
@@ -33,18 +30,35 @@ static PRATT_PARSER_OP_EXP: Lazy<PrattParser<Rule>> = Lazy::new(|| {
         .op(Op::prefix(Rule::neg))
 });
 
+/// Since we parse and execute the flow control at same time
+/// we need to know if we are just parsing static data or
+/// if we are in a loop where we may need to replay later
 enum ParseState<'a> {
     Static(Cow<'a, str>),
     Dynamic(Loop<'a>),
 }
-
+/// Runtime of our language
 struct Runtime<'a> {
+    /// Everytime we encounter an if or a for loop we add a boolean here
+    /// if we should output the content or not
+    /// when we encounter an `end` we `pop` one element
     should_output: Vec<bool>,
+    /// Everytime we encounter a flow control that requires an end we add it here
+    /// so we know if the user input is invalid
     needs_end: Vec<Rule>,
+    /// we add the loops that are active here, so we can replay later
     loops: Vec<Loop<'a>>,
 }
 
 impl Runtime<'_> {
+    pub fn new() -> Self {
+        Self {
+            should_output: Vec::new(),
+            needs_end: Vec::new(),
+            loops: Vec::new(),
+        }
+    }
+
     pub fn is_output_enabled(&self) -> bool {
         (!self.should_output.is_empty() && *(self.should_output.last().unwrap()))
             || self.should_output.is_empty()
@@ -52,7 +66,7 @@ impl Runtime<'_> {
 }
 
 struct Loop<'a> {
-    variable_name: String,
+    variable_name: Cow<'a, str>,
     current_pos: usize,
     original_value: Arc<Vec<TinyLangTypes>>,
     pairs: Vec<Pair<'a, Rule>>,
@@ -60,14 +74,23 @@ struct Loop<'a> {
 }
 
 impl Loop<'_> {
+    /// checks if the loop is still valid
+    /// for example if we are looping throught [1,2,3]
+    /// when we get to current_pos == 2 we are done and
+    /// should not try to replay the loop again
     pub fn still_valid(&self) -> bool {
         self.current_pos < self.original_value.len()
     }
 
+    /// returns the next value and also increment the current_pos to one
+    /// must be called only after checking that the value is still valid (`self.still_valid()`)
     pub fn next(&mut self) -> TinyLangTypes {
         let next = self.original_value.get(self.current_pos);
         self.current_pos += 1;
-        next.unwrap().clone()
+        match next {
+            Some(n) => n.clone(),
+            None => TinyLangTypes::Nil,
+        }
     }
 }
 /// eval receives the &str to parse and the State.
@@ -85,15 +108,9 @@ impl Loop<'_> {
 /// Check `crate::types::TinyLangTypes` for details of all the types build-in the language.
 pub fn eval(input: &str, mut state: State) -> Result<String, TinyLangError> {
     let pairs = parse(input)?.next().unwrap().into_inner();
-    let should_output = Vec::new();
     let mut output = String::new();
-    let loops: Vec<Loop> = Vec::new();
-    let needs_end = Vec::new();
-    let mut runtime = Runtime {
-        should_output,
-        needs_end,
-        loops,
-    };
+
+    let mut runtime = Runtime::new();
 
     for pair in pairs {
         output.push_str(&process_pair(pair, &mut state, &mut runtime)?);
@@ -129,10 +146,12 @@ fn process_pair<'a>(
         }
     };
     if !runtime.loops.is_empty() {
+        // we must put evey thing we cloned on the current loop
+        // on the previous one, since we may need to replay it again
         runtime.loops.last_mut().unwrap().pairs.push(cloned_pair);
     }
     if runtime.is_output_enabled() {
-        return Ok(current_output.into());
+        Ok(current_output)
     } else {
         Ok(EMPTY_STRING_COW)
     }
@@ -144,23 +163,16 @@ fn replay_loop<'a>(
 ) -> Result<Cow<'a, str>, TinyLangError> {
     let mut output = String::new();
     loop_struct.pairs.remove(0);
+    let mut runtime = Runtime::new();
     while loop_struct.still_valid() {
-        state.insert(loop_struct.variable_name.clone(), loop_struct.next());
-        let should_output = Vec::new();
-        let loops: Vec<Loop> = Vec::new();
-        let needs_end = Vec::new();
-        let mut runtime = Runtime {
-            should_output,
-            needs_end,
-            loops,
-        };
+        state.insert(loop_struct.variable_name.to_string(), loop_struct.next());
 
         for pair in &loop_struct.pairs {
             output.push_str(&process_pair(pair.clone(), state, &mut runtime)?);
         }
     }
     state.insert(
-        loop_struct.variable_name.clone(),
+        loop_struct.variable_name.to_string(),
         loop_struct.old_state_for_var,
     );
     Ok(output.into())
@@ -171,6 +183,9 @@ fn visit_generic<'a>(
     state: &mut State,
     runtime: &mut Runtime<'a>,
 ) -> Result<ParseState<'a>, TinyLangError> {
+    // if we are currently not outputting the result
+    // we don't need to visit the Rule::html or Rule::print
+    // since we would just throw the result away
     let current_output = match (pair.as_rule(), runtime.is_output_enabled()) {
         (Rule::html, true) => pair.as_str().into(),
         (Rule::print, true) => visit_print(pair.into_inner(), state)?.into(),
@@ -199,18 +214,25 @@ fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
 }
 
 fn visit_dynamic<'a>(
-    mut dynamic: Pairs<'_, Rule>,
+    mut dynamic: Pairs<'a, Rule>,
     state: &mut State,
     runtime: &mut Runtime<'a>,
 ) -> Result<Option<Loop<'a>>, TinyLangError> {
     if let Some(dynamic) = dynamic.next() {
+        // if we are not outputting we don't need to process anything for the runtime
+        // but we should still visit flow_* rules since we need to check if they have
+        // their corresponding {%end%}
         match (dynamic.as_rule(), runtime.is_output_enabled()) {
             (Rule::exp, true) => {
                 let _ = visit_exp(dynamic.into_inner(), state)?;
             }
-            (Rule::flow_if, _) => {
+            (Rule::flow_if, true) => {
                 runtime.needs_end.push(Rule::flow_if);
                 runtime.should_output.push(visit_if(dynamic, state)?);
+            }
+            (Rule::flow_if, false) => {
+                runtime.needs_end.push(Rule::flow_if);
+                runtime.should_output.push(false);
             }
             (Rule::flow_else, _) => {
                 //handle case where there is a else without if
@@ -233,10 +255,20 @@ fn visit_dynamic<'a>(
                     return Ok(loop_struct);
                 }
             }
-            (Rule::flow_for, _) => {
-                let for_loop = visit_for(dynamic.into_inner(), state)?;
+            (Rule::flow_for, true) => {
+                let for_loop = visit_for(dynamic.into_inner(), state, true)?;
                 runtime.needs_end.push(Rule::flow_for);
                 runtime.should_output.push(for_loop.still_valid());
+                runtime.loops.push(for_loop);
+            }
+            (Rule::flow_for, false) => {
+                // if we are not outputting the value, it means we are inside a if false { HERE }
+                // if that is the case, we should not halt the execution due to errors on the type of the loop
+                // since it's likely the user did something like if myvar != Nil { for a in myvar {} }
+                let for_loop = visit_for(dynamic.into_inner(), state, false)?;
+                runtime.needs_end.push(Rule::flow_for);
+                // we should keep not outputting
+                runtime.should_output.push(false);
                 runtime.loops.push(for_loop);
             }
             (_, false) => (),
@@ -253,24 +285,27 @@ fn visit_dynamic<'a>(
     Ok(None)
 }
 
-fn visit_for<'a>(mut node: Pairs<Rule>, state: &mut State) -> Result<Loop<'a>, TinyLangError> {
+fn visit_for<'a>(mut node: Pairs<'a, Rule>, state: &mut State, ignore_error: bool) -> Result<Loop<'a>, TinyLangError> {
     let identifier_node = node.next().unwrap();
     let identifier_name = identifier_node.as_span().as_str();
     let identifier = visit_identifier(identifier_node, state)?;
     let original_value = visit_exp(node.next().unwrap().into_inner(), state)?;
-    let original_value = match original_value {
-        TinyLangTypes::Vec(v) => v,
-        _ => return Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
+    // we should ignore errors if we are not outputting anything
+    // because that means we should not execute dynamic statements
+    let original_value: Arc<Vec<TinyLangTypes>> = match (original_value, ignore_error) {
+        (TinyLangTypes::Vec(v), _) => v,
+        (_, false) => return Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
+        (_, true) => Arc::new(Vec::new()),
     };
     let mut loop_struct = Loop {
         current_pos: 0,
         pairs: Vec::new(),
         original_value,
-        variable_name: identifier_name.to_string(),
+        variable_name: identifier_name.into(),
         old_state_for_var: identifier,
     };
 
-    state.insert(loop_struct.variable_name.clone(), loop_struct.next());
+    state.insert(loop_struct.variable_name.to_string(), loop_struct.next());
 
     Ok(loop_struct)
 }
@@ -329,7 +364,7 @@ fn visit_function_call(
     }
 
     match function {
-        TinyLangTypes::Function(f) => Ok(f(params, &state)),
+        TinyLangTypes::Function(f) => Ok(f(params, state)),
         TinyLangTypes::Nil => Err(TinyLangError::RuntimeError(RuntimeError::IdentifierIsNil)),
         _ => Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
     }
@@ -427,6 +462,7 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     #[test]
@@ -618,7 +654,9 @@ mod test {
             "{{ f(1) }}",
             HashMap::from([(
                 "f".into(),
-                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| args.get(0).unwrap().clone()))),
+                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| {
+                    args.get(0).unwrap().clone()
+                }))),
             )]),
         )
         .unwrap();
@@ -632,7 +670,9 @@ mod test {
             "{% f(1) %}",
             HashMap::from([(
                 "f".into(),
-                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| args.get(0).unwrap().clone()))),
+                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| {
+                    args.get(0).unwrap().clone()
+                }))),
             )]),
         )
         .unwrap();
@@ -718,22 +758,52 @@ mod test {
         repeat
             {% for a in b %}
 1
+               {% for a in b %}
+               2
+               {%end%}
             {%end%}
         {% end %}
         abc
         "#;
         let expected = r#"repeat
             1
+            2
+            2
+            2
             1
+            2
+            2
+            2
             1
+            2
+            2
+            2
         repeat
             1
+            2
+            2
+            2
             1
+            2
+            2
+            2
             1
+            2
+            2
+            2
         repeat
             1
+            2
+            2
+            2
             1
+            2
+            2
+            2
             1
+            2
+            2
+            2
         abc
         "#;
         let result = eval(
