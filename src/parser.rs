@@ -329,7 +329,7 @@ fn visit_function_call(
     }
 
     match function {
-        TinyLangTypes::Function(f) => Ok(f(params)),
+        TinyLangTypes::Function(f) => Ok(f(params, &state)),
         TinyLangTypes::Nil => Err(TinyLangError::RuntimeError(RuntimeError::IdentifierIsNil)),
         _ => Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
     }
@@ -618,7 +618,7 @@ mod test {
             "{{ f(1) }}",
             HashMap::from([(
                 "f".into(),
-                TinyLangTypes::Function(Arc::new(Box::new(|args| args.get(0).unwrap().clone()))),
+                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| args.get(0).unwrap().clone()))),
             )]),
         )
         .unwrap();
@@ -632,7 +632,7 @@ mod test {
             "{% f(1) %}",
             HashMap::from([(
                 "f".into(),
-                TinyLangTypes::Function(Arc::new(Box::new(|args| args.get(0).unwrap().clone()))),
+                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| args.get(0).unwrap().clone()))),
             )]),
         )
         .unwrap();

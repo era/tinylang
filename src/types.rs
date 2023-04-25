@@ -1,5 +1,6 @@
 use crate::errors::RuntimeError;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
@@ -20,7 +21,8 @@ pub enum TinyLangTypes {
     /// all functions must return a TinyLangTypes, if yours does not return
     /// anything use the TinyLangTypes::Nil type.
     /// Users cannot declare functions inside the template file.
-    Function(Arc<Box<dyn Fn(FuncArguments) -> TinyLangTypes>>),
+    /// The function also receives the global state
+    Function(Arc<Box<dyn Fn(FuncArguments, &HashMap<String, TinyLangTypes>) -> TinyLangTypes>>),
     /// Represents a Vector to be iterated using the for loop
     /// it cannot be created inside the template file.
     Vec(Arc<Vec<TinyLangTypes>>),
