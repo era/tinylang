@@ -22,7 +22,7 @@ op_eg = { ">=" }
 op_g = { ">"}
 prefix   =  _{ neg }
 neg    =   { "-" }
-identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 primary = _{ literal | "(" ~ op_exp ~ ")" | identifier }
 op_exp= { prefix* ~ primary ~ WHITESPACE* ~ (infix ~ WHITESPACE* ~ prefix* ~ primary)+ }
 exp = { function_call | op_exp | literal | identifier }

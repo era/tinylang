@@ -541,8 +541,8 @@ mod test {
     #[test]
     fn test_identifier_math_print_stmt() {
         let result = eval(
-            "{{ a * 2 + a}}",
-            HashMap::from([("a".into(), TinyLangTypes::Numeric(5_f64))]),
+            "{{ a_a * 2 + a_a}}",
+            HashMap::from([("a_a".into(), TinyLangTypes::Numeric(5_f64))]),
         )
         .unwrap();
         assert_eq!("15", result.as_str())
