@@ -7,7 +7,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
 pub type FuncArguments = Vec<TinyLangTypes>;
-pub type Function = dyn Fn(FuncArguments, &HashMap<String, TinyLangTypes>) -> TinyLangTypes;
+pub type Function = dyn Fn(FuncArguments, &HashMap<String, TinyLangTypes>) -> TinyLangTypes + Send;
 pub type State = HashMap<String, TinyLangTypes>;
 
 /// Represents the types supported by the template
