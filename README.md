@@ -42,7 +42,7 @@ those types on the Rust side.
 
 ## Using as a library
 
-You can call the `eval` method which receives the `&str` and the `State` (variables and functions). It returns
+You can call the `eval` method which receives the template (`&str`) and the `State` (variables and functions accessible inside the template). It returns
 the parsed string or an error.
 
 
