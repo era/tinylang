@@ -1,5 +1,5 @@
 use crate::parser::eval;
-use crate::types::TinyLangTypes;
+use crate::types::TinyLangType;
 use gloo_utils::format::JsValueSerdeExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -21,12 +21,12 @@ pub struct JsType {
     pub internal_type: InternalType,
 }
 
-fn parse_js(val: JsType) -> Result<TinyLangTypes, &'static str> {
+fn parse_js(val: JsType) -> Result<TinyLangType, &'static str> {
     match val.internal_type {
-        InternalType::Numeric => Ok(TinyLangTypes::Numeric(
+        InternalType::Numeric => Ok(TinyLangType::Numeric(
             val.value.parse::<f64>().map_err(|_| "Invalid Number")?,
         )),
-        InternalType::String => Ok(TinyLangTypes::String(val.value)),
+        InternalType::String => Ok(TinyLangType::String(val.value)),
         InternalType::Vec => {
             let mut tinylang_vector = Vec::new();
             let internal_vector: Vec<JsType> =
@@ -34,7 +34,7 @@ fn parse_js(val: JsType) -> Result<TinyLangTypes, &'static str> {
             for internal_element in internal_vector {
                 tinylang_vector.push(parse_js(internal_element)?);
             }
-            Ok(TinyLangTypes::Vec(Arc::new(tinylang_vector)))
+            Ok(TinyLangType::Vec(Arc::new(tinylang_vector)))
         }
     }
 }

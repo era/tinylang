@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::errors::{ParseError, RuntimeError, TinyLangError};
-use crate::types::{State, TinyLangTypes};
+use crate::types::{State, TinyLangType};
 
 #[derive(Parser)]
 #[grammar = "../grammar/template_lang.pest"]
@@ -68,9 +68,9 @@ impl Runtime<'_> {
 struct Loop<'a> {
     variable_name: Cow<'a, str>,
     current_pos: usize,
-    original_value: Arc<Vec<TinyLangTypes>>,
+    original_value: Arc<Vec<TinyLangType>>,
     pairs: Vec<Pair<'a, Rule>>,
-    old_state_for_var: TinyLangTypes,
+    old_state_for_var: TinyLangType,
 }
 
 impl Loop<'_> {
@@ -84,12 +84,12 @@ impl Loop<'_> {
 
     /// returns the next value and also increment the current_pos to one
     /// must be called only after checking that the value is still valid (`self.still_valid()`)
-    pub fn next(&mut self) -> TinyLangTypes {
+    pub fn next(&mut self) -> TinyLangType {
         let next = self.original_value.get(self.current_pos);
         self.current_pos += 1;
         match next {
             Some(n) => n.clone(),
-            None => TinyLangTypes::Nil,
+            None => TinyLangType::Nil,
         }
     }
 }
@@ -292,8 +292,8 @@ fn visit_for<'a>(mut node: Pairs<'a, Rule>, state: &mut State, ignore_error: boo
     let original_value = visit_exp(node.next().unwrap().into_inner(), state)?;
     // we should ignore errors if we are not outputting anything
     // because that means we should not execute dynamic statements
-    let original_value: Arc<Vec<TinyLangTypes>> = match (original_value, ignore_error) {
-        (TinyLangTypes::Vec(v), _) => v,
+    let original_value: Arc<Vec<TinyLangType>> = match (original_value, ignore_error) {
+        (TinyLangType::Vec(v), _) => v,
         (_, false) => return Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
         (_, true) => Arc::new(Vec::new()),
     };
@@ -312,7 +312,7 @@ fn visit_for<'a>(mut node: Pairs<'a, Rule>, state: &mut State, ignore_error: boo
 
 fn visit_if(node_if: Pair<Rule>, state: &mut State) -> Result<bool, TinyLangError> {
     let condition = match visit_exp(node_if.into_inner(), state)? {
-        TinyLangTypes::Bool(b) => b,
+        TinyLangType::Bool(b) => b,
         _ => return Err(TinyLangError::RuntimeError(RuntimeError::ExpectingBool)),
     };
 
@@ -335,7 +335,7 @@ fn visit_print(mut node: Pairs<Rule>, state: &mut State) -> Result<String, TinyL
     Ok(print_value.to_string())
 }
 
-fn visit_exp(node: Pairs<Rule>, state: &mut State) -> Result<TinyLangTypes, TinyLangError> {
+fn visit_exp(node: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
     let first_child = node.into_iter().next().unwrap();
     match first_child.as_rule() {
         Rule::literal => visit_literal(first_child.into_inner()),
@@ -354,7 +354,7 @@ fn visit_exp(node: Pairs<Rule>, state: &mut State) -> Result<TinyLangTypes, Tiny
 fn visit_function_call(
     mut nodes: Pairs<Rule>,
     state: &mut State,
-) -> Result<TinyLangTypes, TinyLangError> {
+) -> Result<TinyLangType, TinyLangError> {
     let function = visit_identifier(nodes.next().unwrap(), state)?;
     let mut params = Vec::new();
 
@@ -364,21 +364,21 @@ fn visit_function_call(
     }
 
     match function {
-        TinyLangTypes::Function(f) => Ok(f(params, state)),
-        TinyLangTypes::Nil => Err(TinyLangError::RuntimeError(RuntimeError::IdentifierIsNil)),
+        TinyLangType::Function(f) => Ok(f(params, state)),
+        TinyLangType::Nil => Err(TinyLangError::RuntimeError(RuntimeError::IdentifierIsNil)),
         _ => Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
     }
 }
 
-fn visit_identifier(node: Pair<Rule>, state: &mut State) -> Result<TinyLangTypes, TinyLangError> {
+fn visit_identifier(node: Pair<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
     let key = node.as_span().as_str();
     match state.get(key) {
         Some(value) => Ok(value.clone()),
-        None => Ok(TinyLangTypes::Nil),
+        None => Ok(TinyLangType::Nil),
     }
 }
 
-fn visit_op_exp(pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangTypes, TinyLangError> {
+fn visit_op_exp(pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
     PRATT_PARSER_OP_EXP
         .map_primary(|primary| match primary.as_rule() {
             Rule::literal => visit_literal(primary.into_inner()),
@@ -396,13 +396,13 @@ fn visit_op_exp(pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangTypes, 
                 Rule::sub => lhs? - rhs?,
                 Rule::mul => lhs? * rhs?,
                 Rule::div => lhs? / rhs?,
-                Rule::op_eq => Ok(TinyLangTypes::Bool(lhs? == rhs?)),
-                Rule::op_neq => Ok(TinyLangTypes::Bool(lhs? != rhs?)),
+                Rule::op_eq => Ok(TinyLangType::Bool(lhs? == rhs?)),
+                Rule::op_neq => Ok(TinyLangType::Bool(lhs? != rhs?)),
                 Rule::op_and | Rule::op_or => visit_logical_op(op.as_rule(), lhs?, rhs?),
-                Rule::op_eg => Ok(TinyLangTypes::Bool(lhs? >= rhs?)),
-                Rule::op_el => Ok(TinyLangTypes::Bool(lhs? <= rhs?)),
-                Rule::op_g => Ok(TinyLangTypes::Bool(lhs? > rhs?)),
-                Rule::op_l => Ok(TinyLangTypes::Bool(lhs? < rhs?)),
+                Rule::op_eg => Ok(TinyLangType::Bool(lhs? >= rhs?)),
+                Rule::op_el => Ok(TinyLangType::Bool(lhs? <= rhs?)),
+                Rule::op_g => Ok(TinyLangType::Bool(lhs? > rhs?)),
+                Rule::op_l => Ok(TinyLangType::Bool(lhs? < rhs?)),
                 _ => unreachable!(),
             };
 
@@ -413,21 +413,21 @@ fn visit_op_exp(pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangTypes, 
 
 fn visit_logical_op(
     op: Rule,
-    lhs: TinyLangTypes,
-    rhs: TinyLangTypes,
-) -> Result<TinyLangTypes, RuntimeError> {
+    lhs: TinyLangType,
+    rhs: TinyLangType,
+) -> Result<TinyLangType, RuntimeError> {
     match (op, lhs, rhs) {
-        (Rule::op_and, TinyLangTypes::Bool(lhs), TinyLangTypes::Bool(rhs)) => {
-            Ok(TinyLangTypes::Bool(lhs && rhs))
+        (Rule::op_and, TinyLangType::Bool(lhs), TinyLangType::Bool(rhs)) => {
+            Ok(TinyLangType::Bool(lhs && rhs))
         }
-        (Rule::op_or, TinyLangTypes::Bool(lhs), TinyLangTypes::Bool(rhs)) => {
-            Ok(TinyLangTypes::Bool(lhs || rhs))
+        (Rule::op_or, TinyLangType::Bool(lhs), TinyLangType::Bool(rhs)) => {
+            Ok(TinyLangType::Bool(lhs || rhs))
         }
         _ => Err(RuntimeError::InvalidLangType),
     }
 }
 
-fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
+fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangType, TinyLangError> {
     let child = match node.into_iter().next() {
         Some(child) => child,
         None => {
@@ -441,16 +441,16 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangTypes, TinyLangError> {
         // cannot fail given our grammar (well, this can still fail
         // because it could be a huge number, but let's ignore this for
         // now)
-        Rule::integer | Rule::float => Ok(TinyLangTypes::Numeric(child.as_str().parse().unwrap())),
+        Rule::integer | Rule::float => Ok(TinyLangType::Numeric(child.as_str().parse().unwrap())),
         // cannot fail given our grammar
-        Rule::bool => Ok(TinyLangTypes::Bool(child.as_str().parse().unwrap())),
+        Rule::bool => Ok(TinyLangType::Bool(child.as_str().parse().unwrap())),
         Rule::string => {
             // we need to remove the ' from start and end of the string
             let str_val = child.as_str();
             let string = &str_val[1..str_val.len() - 1];
             Ok(string.into())
         }
-        Rule::nil => Ok(TinyLangTypes::Nil),
+        Rule::nil => Ok(TinyLangType::Nil),
         _ => Err(ParseError::InvalidNode(format!(
             "visit_lang_types was called with an invalid node {:?}",
             child
@@ -532,7 +532,7 @@ mod test {
     fn test_identifier_print_stmt() {
         let result = eval(
             "{{ a }}",
-            HashMap::from([("a".into(), TinyLangTypes::Numeric(5_f64))]),
+            HashMap::from([("a".into(), TinyLangType::Numeric(5_f64))]),
         )
         .unwrap();
         assert_eq!("5", result.as_str())
@@ -542,7 +542,7 @@ mod test {
     fn test_identifier_math_print_stmt() {
         let result = eval(
             "{{ a_a * 2 + a_a}}",
-            HashMap::from([("a_a".into(), TinyLangTypes::Numeric(5_f64))]),
+            HashMap::from([("a_a".into(), TinyLangType::Numeric(5_f64))]),
         )
         .unwrap();
         assert_eq!("15", result.as_str())
@@ -575,7 +575,7 @@ mod test {
     fn test_invalid_math_stmt() {
         let result = eval(
             "{{ a * 2 + a}}",
-            HashMap::from([("a".into(), TinyLangTypes::String("abc".into()))]),
+            HashMap::from([("a".into(), TinyLangType::String("abc".into()))]),
         );
         assert_eq!(
             Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
@@ -605,7 +605,7 @@ mod test {
     fn test_comp_eq_str_ident_stmt() {
         let result = eval(
             "{{ 'a' == 'a' }}",
-            HashMap::from([("a".into(), TinyLangTypes::String("abc".into()))]),
+            HashMap::from([("a".into(), TinyLangType::String("abc".into()))]),
         )
         .unwrap();
         assert_eq!("true", result.as_str())
@@ -654,7 +654,7 @@ mod test {
             "{{ f(1) }}",
             HashMap::from([(
                 "f".into(),
-                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| {
+                TinyLangType::Function(Arc::new(Box::new(|args, _state| {
                     args.get(0).unwrap().clone()
                 }))),
             )]),
@@ -670,7 +670,7 @@ mod test {
             "{% f(1) %}",
             HashMap::from([(
                 "f".into(),
-                TinyLangTypes::Function(Arc::new(Box::new(|args, _state| {
+                TinyLangType::Function(Arc::new(Box::new(|args, _state| {
                     args.get(0).unwrap().clone()
                 }))),
             )]),
@@ -744,7 +744,7 @@ mod test {
             template,
             HashMap::from([(
                 "b".into(),
-                TinyLangTypes::Vec(Arc::new(vec![1.into(), 2.into(), 3.into()])),
+                TinyLangType::Vec(Arc::new(vec![1.into(), 2.into(), 3.into()])),
             )]),
         )
         .unwrap();
@@ -810,7 +810,7 @@ mod test {
             template,
             HashMap::from([(
                 "b".into(),
-                TinyLangTypes::Vec(Arc::new(vec![1.into(), 2.into(), 3.into()])),
+                TinyLangType::Vec(Arc::new(vec![1.into(), 2.into(), 3.into()])),
             )]),
         )
         .unwrap();

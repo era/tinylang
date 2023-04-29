@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::Arc;
 use tinylang::eval;
-use tinylang::types::TinyLangTypes;
+use tinylang::types::TinyLangType;
 
 static TEMPLATE: &str = "benches/for.template";
 static TEMPLATE_NO_FOR: &str = "benches/no_vars.template";
@@ -23,7 +23,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut state = HashMap::default();
     state.insert(
         "items".into(),
-        TinyLangTypes::Vec(Arc::new(vec!["a".into(), "b".into(), "c".into()])),
+        TinyLangType::Vec(Arc::new(vec!["a".into(), "b".into(), "c".into()])),
     );
 
     c.bench_function("basic_template_parse", move |b| {

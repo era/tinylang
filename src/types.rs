@@ -6,13 +6,13 @@ use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::sync::Arc;
 
-pub type FuncArguments = Vec<TinyLangTypes>;
-pub type Function = dyn Fn(FuncArguments, &HashMap<String, TinyLangTypes>) -> TinyLangTypes + Send;
-pub type State = HashMap<String, TinyLangTypes>;
+pub type FuncArguments = Vec<TinyLangType>;
+pub type Function = dyn Fn(FuncArguments, &HashMap<String, TinyLangType>) -> TinyLangType + Send;
+pub type State = HashMap<String, TinyLangType>;
 
 /// Represents the types supported by the template
 #[derive(Clone)]
-pub enum TinyLangTypes {
+pub enum TinyLangType {
     String(String),
     /// any integer or float is represented as a f64
     Numeric(f64),
@@ -26,32 +26,32 @@ pub enum TinyLangTypes {
     Function(Arc<Box<Function>>),
     /// Represents a Vector to be iterated using the for loop
     /// it cannot be created inside the template file.
-    Vec(Arc<Vec<TinyLangTypes>>),
+    Vec(Arc<Vec<TinyLangType>>),
     Nil,
 }
 
-impl PartialEq for TinyLangTypes {
+impl PartialEq for TinyLangType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (TinyLangTypes::String(a), TinyLangTypes::String(b)) => a == b,
-            (TinyLangTypes::Numeric(a), TinyLangTypes::Numeric(b)) => a == b,
-            (TinyLangTypes::Bool(a), TinyLangTypes::Bool(b)) => a == b,
-            (TinyLangTypes::Vec(a), TinyLangTypes::Vec(b)) => a == b,
+            (TinyLangType::String(a), TinyLangType::String(b)) => a == b,
+            (TinyLangType::Numeric(a), TinyLangType::Numeric(b)) => a == b,
+            (TinyLangType::Bool(a), TinyLangType::Bool(b)) => a == b,
+            (TinyLangType::Vec(a), TinyLangType::Vec(b)) => a == b,
             // Ignore the Function variant in the comparison
-            (TinyLangTypes::Nil, TinyLangTypes::Nil) => true,
+            (TinyLangType::Nil, TinyLangType::Nil) => true,
             _ => false,
         }
     }
 }
 
-impl PartialOrd for TinyLangTypes {
+impl PartialOrd for TinyLangType {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
-            (TinyLangTypes::String(a), TinyLangTypes::String(b)) => a.partial_cmp(b),
-            (TinyLangTypes::Numeric(a), TinyLangTypes::Numeric(b)) => a.partial_cmp(b),
-            (TinyLangTypes::Bool(a), TinyLangTypes::Bool(b)) => a.partial_cmp(b),
+            (TinyLangType::String(a), TinyLangType::String(b)) => a.partial_cmp(b),
+            (TinyLangType::Numeric(a), TinyLangType::Numeric(b)) => a.partial_cmp(b),
+            (TinyLangType::Bool(a), TinyLangType::Bool(b)) => a.partial_cmp(b),
             // Ignore the Function variant in the comparison
-            (TinyLangTypes::Nil, TinyLangTypes::Nil) => Some(Ordering::Equal),
+            (TinyLangType::Nil, TinyLangType::Nil) => Some(Ordering::Equal),
             _ => None,
         }
     }
@@ -61,112 +61,112 @@ macro_rules! math_operation {
     ($x:ident, $y:ident, $op:tt) => {{
         let lhs: f64 = $x.try_into()?;
         let rhs: f64 = $y.try_into()?;
-        Ok(TinyLangTypes::Numeric(lhs $op rhs))
+        Ok(TinyLangType::Numeric(lhs $op rhs))
     }};
 }
 
-impl Div for TinyLangTypes {
-    type Output = Result<TinyLangTypes, RuntimeError>;
+impl Div for TinyLangType {
+    type Output = Result<TinyLangType, RuntimeError>;
 
     fn div(self, rhs: Self) -> Self::Output {
         math_operation!(self, rhs, /)
     }
 }
 
-impl Mul for TinyLangTypes {
-    type Output = Result<TinyLangTypes, RuntimeError>;
+impl Mul for TinyLangType {
+    type Output = Result<TinyLangType, RuntimeError>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         math_operation!(self, rhs, *)
     }
 }
 
-impl Add for TinyLangTypes {
-    type Output = Result<TinyLangTypes, RuntimeError>;
+impl Add for TinyLangType {
+    type Output = Result<TinyLangType, RuntimeError>;
 
     fn add(self, rhs: Self) -> Self::Output {
         math_operation!(self, rhs, +)
     }
 }
 
-impl Sub for TinyLangTypes {
-    type Output = Result<TinyLangTypes, RuntimeError>;
+impl Sub for TinyLangType {
+    type Output = Result<TinyLangType, RuntimeError>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         math_operation!(self, rhs, -)
     }
 }
 
-impl Neg for TinyLangTypes {
-    type Output = Result<TinyLangTypes, RuntimeError>;
+impl Neg for TinyLangType {
+    type Output = Result<TinyLangType, RuntimeError>;
 
     fn neg(self) -> Self::Output {
         let lhs: f64 = self.try_into()?;
-        Ok(TinyLangTypes::Numeric(-lhs))
+        Ok(TinyLangType::Numeric(-lhs))
     }
 }
 
-impl Display for TinyLangTypes {
+impl Display for TinyLangType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TinyLangTypes::Numeric(e) => write!(f, "{}", e),
-            TinyLangTypes::String(e) => write!(f, "{}", e),
-            TinyLangTypes::Bool(e) => write!(f, "{}", e),
-            TinyLangTypes::Nil => write!(f, "Nil"),
-            TinyLangTypes::Function(_) => write!(f, "Function"),
-            TinyLangTypes::Vec(v) => write!(f, "Vector with {}", v.len()),
+            TinyLangType::Numeric(e) => write!(f, "{}", e),
+            TinyLangType::String(e) => write!(f, "{}", e),
+            TinyLangType::Bool(e) => write!(f, "{}", e),
+            TinyLangType::Nil => write!(f, "Nil"),
+            TinyLangType::Function(_) => write!(f, "Function"),
+            TinyLangType::Vec(v) => write!(f, "Vector with {}", v.len()),
         }
     }
 }
 
-impl TryInto<f64> for TinyLangTypes {
+impl TryInto<f64> for TinyLangType {
     type Error = RuntimeError;
 
     fn try_into(self) -> Result<f64, Self::Error> {
         match self {
-            TinyLangTypes::Numeric(f) => Ok(f),
+            TinyLangType::Numeric(f) => Ok(f),
             _ => Err(RuntimeError::InvalidLangType),
         }
     }
 }
 
-impl From<TinyLangTypes> for String {
-    fn from(val: TinyLangTypes) -> Self {
+impl From<TinyLangType> for String {
+    fn from(val: TinyLangType) -> Self {
         val.to_string()
     }
 }
 
-impl From<String> for TinyLangTypes {
+impl From<String> for TinyLangType {
     fn from(value: String) -> Self {
         Self::String(value)
     }
 }
 
-impl From<&str> for TinyLangTypes {
+impl From<&str> for TinyLangType {
     fn from(value: &str) -> Self {
         Self::String(value.to_string())
     }
 }
 
-impl From<i32> for TinyLangTypes {
+impl From<i32> for TinyLangType {
     fn from(value: i32) -> Self {
         Self::Numeric(value.into())
     }
 }
 
-impl From<f64> for TinyLangTypes {
+impl From<f64> for TinyLangType {
     fn from(value: f64) -> Self {
         Self::Numeric(value)
     }
 }
 
-impl From<f32> for TinyLangTypes {
+impl From<f32> for TinyLangType {
     fn from(value: f32) -> Self {
         Self::Numeric(value.into())
     }
 }
 
-impl From<bool> for TinyLangTypes {
+impl From<bool> for TinyLangType {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
