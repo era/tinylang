@@ -36,7 +36,7 @@ The language support:
 
 Numbers (integers and floats), String (e.g. `'a string'`), bool (`true` and `false`).
 
-It's possible to use Vectors and Objects (a variable with a HashMap<String, TinyLangType>),
+It's possible to use Vectors (`Vec<TinyLangType>`) and Objects (a variable with a `HashMap<String, TinyLangType>`),
 but it's not possible to construct them inside a template file. It's only possible to create
 those types on the Rust side.
 
