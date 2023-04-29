@@ -338,6 +338,7 @@ fn visit_print(mut node: Pairs<Rule>, state: &mut State) -> Result<String, TinyL
 fn visit_exp(node: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
     let first_child = node.into_iter().next().unwrap();
     match first_child.as_rule() {
+        Rule::dot => visit_dot(first_child.into_inner(), state),
         Rule::literal => visit_literal(first_child.into_inner()),
         Rule::op_exp => visit_op_exp(first_child.into_inner(), state),
         Rule::identifier => visit_identifier(first_child, state),
@@ -377,10 +378,18 @@ fn visit_identifier(node: Pair<Rule>, state: &mut State) -> Result<TinyLangType,
         None => Ok(TinyLangType::Nil),
     }
 }
+fn visit_dot(mut pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
+    let object = visit_identifier(pairs.next().unwrap(), state)?;
+    match object {
+        TinyLangType::Object(mut s) => visit_identifier(pairs.next().unwrap(), &mut s),
+        _ => Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
+    }
+}
 
 fn visit_op_exp(pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
     PRATT_PARSER_OP_EXP
         .map_primary(|primary| match primary.as_rule() {
+            Rule::dot => visit_dot(primary.into_inner(), state),
             Rule::literal => visit_literal(primary.into_inner()),
             Rule::identifier => visit_identifier(primary, state),
             Rule::op_exp => visit_op_exp(primary.into_inner(), state), // from "(" ~ op_exp ~ ")"
@@ -464,6 +473,40 @@ mod test {
     use super::*;
     use std::collections::HashMap;
     use std::sync::Arc;
+
+
+    #[test]
+    fn test_dot_op() {
+        let mut a_object = State::new();
+        a_object.insert("b".into(), 3.into());
+        let result = eval(
+            "{{ a.b }}",
+            HashMap::from([("a".into(), TinyLangType::Object(a_object))]),
+        ).unwrap();
+        assert_eq!("3", result.as_str());
+    }
+
+    #[test]
+    fn test_dot_op_math() {
+        let mut a_object = State::new();
+        a_object.insert("b".into(), 3.into());
+        let result = eval(
+            "{{ 3 + a.b }}",
+            HashMap::from([("a".into(), TinyLangType::Object(a_object))]),
+        ).unwrap();
+        assert_eq!("6", result.as_str());
+    }
+
+    #[test]
+    fn test_dot_op_math_two_objects() {
+        let mut a_object = State::new();
+        a_object.insert("b".into(), 3.into());
+        let result = eval(
+            "{{ a.b + a.b }}",
+            HashMap::from([("a".into(), TinyLangType::Object(a_object))]),
+        ).unwrap();
+        assert_eq!("6", result.as_str());
+    }
 
     #[test]
     fn test_basic_html() {

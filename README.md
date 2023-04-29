@@ -16,7 +16,7 @@ WIP
 | if/else   | ✅       | `{% if true %}` `{% else %}`  `{% end %}`|
 | loops   | ✅       | `{%for item in array %}` `{% end %}`|
 | function calls   | ✅        | `my_function('abc')`|
-| Dot operator   | 🚧       | `something.something_else`|
+| Dot operator   | ✅       | `something.something_else`|
 
 ### Other things missing
 

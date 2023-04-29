@@ -27,6 +27,8 @@ pub enum TinyLangType {
     /// Represents a Vector to be iterated using the for loop
     /// it cannot be created inside the template file.
     Vec(Arc<Vec<TinyLangType>>),
+    /// Each instance of an object has their own "vtable"
+    Object(State),
     Nil,
 }
 
@@ -37,6 +39,7 @@ impl PartialEq for TinyLangType {
             (TinyLangType::Numeric(a), TinyLangType::Numeric(b)) => a == b,
             (TinyLangType::Bool(a), TinyLangType::Bool(b)) => a == b,
             (TinyLangType::Vec(a), TinyLangType::Vec(b)) => a == b,
+            (TinyLangType::Object(a), TinyLangType::Object(b)) => a == b,
             // Ignore the Function variant in the comparison
             (TinyLangType::Nil, TinyLangType::Nil) => true,
             _ => false,
@@ -50,7 +53,7 @@ impl PartialOrd for TinyLangType {
             (TinyLangType::String(a), TinyLangType::String(b)) => a.partial_cmp(b),
             (TinyLangType::Numeric(a), TinyLangType::Numeric(b)) => a.partial_cmp(b),
             (TinyLangType::Bool(a), TinyLangType::Bool(b)) => a.partial_cmp(b),
-            // Ignore the Function variant in the comparison
+            // Ignore the Function and Object variant in the comparison
             (TinyLangType::Nil, TinyLangType::Nil) => Some(Ordering::Equal),
             _ => None,
         }
@@ -114,7 +117,8 @@ impl Display for TinyLangType {
             TinyLangType::Bool(e) => write!(f, "{}", e),
             TinyLangType::Nil => write!(f, "Nil"),
             TinyLangType::Function(_) => write!(f, "Function"),
-            TinyLangType::Vec(v) => write!(f, "Vector with {}", v.len()),
+            TinyLangType::Object(_) => write!(f, "Object"),
+            TinyLangType::Vec(v) => write!(f, "Vector with {} elements", v.len()),
         }
     }
 }
@@ -169,5 +173,11 @@ impl From<f32> for TinyLangType {
 impl From<bool> for TinyLangType {
     fn from(value: bool) -> Self {
         Self::Bool(value)
+    }
+}
+
+impl From<State> for TinyLangType {
+    fn from(value: State) -> Self {
+        Self::Object(value)
     }
 }
