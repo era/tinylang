@@ -14,8 +14,9 @@ WIP
 | Print Statements `{{}}`   | ✅        | `{{ 1 + 2 + 3 }}`|
 | Bool, String, Numeric types   | ✅        | `true`, `false`, `'a string'`, `3`|
 | if/else   | ✅       | `{% if true %}` `{% else %}`  `{% end %}`|
-| loops   | 🚧        | `{%for item in array %}` `{% end %}`|
+| loops   | ✅       | `{%for item in array %}` `{% end %}`|
 | function calls   | ✅        | `my_function('abc')`|
+| Dot operator   | 🚧       | `something.something_else`|
 
 ### Other things missing
 
