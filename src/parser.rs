@@ -379,11 +379,14 @@ fn visit_identifier(node: Pair<Rule>, state: &mut State) -> Result<TinyLangType,
     }
 }
 fn visit_dot(mut pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
-    let object = visit_identifier(pairs.next().unwrap(), state)?;
-    match object {
-        TinyLangType::Object(mut s) => visit_identifier(pairs.next().unwrap(), &mut s),
-        _ => Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
+    let mut object = visit_identifier(pairs.next().unwrap(), state)?;
+    while let Some(p) = pairs.next() {
+        object = match object {
+            TinyLangType::Object(ref mut s) => visit_identifier(p,s)?,
+            _ => return Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
+        };
     }
+    Ok(object)
 }
 
 fn visit_op_exp(pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
@@ -495,6 +498,19 @@ mod test {
             HashMap::from([("a".into(), TinyLangType::Object(a_object))]),
         ).unwrap();
         assert_eq!("6", result.as_str());
+    }
+
+    #[test]
+    fn test_dot_op_multiples() {
+        let mut a_object = State::new();
+        a_object.insert("b".into(), 3.into());
+        let mut b_object = State::new();
+        b_object.insert("b".into(), a_object.into());
+        let result = eval(
+            "{{ a.b.b }}",
+            HashMap::from([("a".into(), TinyLangType::Object(b_object))]),
+        ).unwrap();
+        assert_eq!("3", result.as_str());
     }
 
     #[test]
