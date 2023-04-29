@@ -3,7 +3,7 @@
 TinyLang is a simple template language done while streaming at twitch with @Karreiro. 
 
 One of the design decisions is that you cannot assign new values to variables 
-inside the template file. So you can write something like `{% a = 2 %}`, you
+inside the template file. So you cannot write something like `{% a = 2 %}`, you
 have to actually setup the state on the Rust side. One small exception is the for loop
 which does assigns and create a new variable to be used inside the template.
 
