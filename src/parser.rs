@@ -713,9 +713,9 @@ mod test {
             "{{ f(1) }}",
             HashMap::from([(
                 "f".into(),
-                TinyLangType::Function(Arc::new(Box::new(|args, _state| {
+                TinyLangType::Function(Arc::new(|args, _state| {
                     args.get(0).unwrap().clone()
-                }))),
+                })),
             )]),
         )
         .unwrap();
@@ -729,9 +729,9 @@ mod test {
             "{% f(1) %}",
             HashMap::from([(
                 "f".into(),
-                TinyLangType::Function(Arc::new(Box::new(|args, _state| {
+                TinyLangType::Function(Arc::new(|args, _state| {
                     args.get(0).unwrap().clone()
-                }))),
+                })),
             )]),
         )
         .unwrap();
