@@ -92,6 +92,21 @@ impl Loop<'_> {
             None => TinyLangType::Nil,
         }
     }
+
+    fn replay_loop<'a>(mut self, state: &mut State) -> Result<Cow<'a, str>, TinyLangError> {
+        let mut output = String::new();
+        self.pairs.remove(0);
+        let mut runtime = Runtime::new();
+        while self.still_valid() {
+            state.insert(self.variable_name.to_string(), self.next());
+
+            for pair in &self.pairs {
+                output.push_str(&process_pair(pair.clone(), state, &mut runtime)?);
+            }
+        }
+        state.insert(self.variable_name.to_string(), self.old_state_for_var);
+        Ok(output.into())
+    }
 }
 /// eval receives the &str to parse and the State.
 /// You should put in the State any function or variable that your templates
@@ -139,7 +154,7 @@ fn process_pair<'a>(
                     .extend(l.pairs.clone());
             }
             if runtime.is_output_enabled() {
-                replay_loop(l, state)?
+                l.replay_loop(state)?
             } else {
                 EMPTY_STRING_COW
             }
@@ -155,27 +170,6 @@ fn process_pair<'a>(
     } else {
         Ok(EMPTY_STRING_COW)
     }
-}
-
-fn replay_loop<'a>(
-    mut loop_struct: Loop<'a>,
-    state: &mut State,
-) -> Result<Cow<'a, str>, TinyLangError> {
-    let mut output = String::new();
-    loop_struct.pairs.remove(0);
-    let mut runtime = Runtime::new();
-    while loop_struct.still_valid() {
-        state.insert(loop_struct.variable_name.to_string(), loop_struct.next());
-
-        for pair in &loop_struct.pairs {
-            output.push_str(&process_pair(pair.clone(), state, &mut runtime)?);
-        }
-    }
-    state.insert(
-        loop_struct.variable_name.to_string(),
-        loop_struct.old_state_for_var,
-    );
-    Ok(output.into())
 }
 
 fn visit_generic<'a>(
@@ -285,7 +279,11 @@ fn visit_dynamic<'a>(
     Ok(None)
 }
 
-fn visit_for<'a>(mut node: Pairs<'a, Rule>, state: &mut State, ignore_error: bool) -> Result<Loop<'a>, TinyLangError> {
+fn visit_for<'a>(
+    mut node: Pairs<'a, Rule>,
+    state: &mut State,
+    ignore_error: bool,
+) -> Result<Loop<'a>, TinyLangError> {
     let identifier_node = node.next().unwrap();
     let identifier_name = identifier_node.as_span().as_str();
     let identifier = visit_identifier(identifier_node, state)?;
@@ -380,9 +378,9 @@ fn visit_identifier(node: Pair<Rule>, state: &mut State) -> Result<TinyLangType,
 }
 fn visit_dot(mut pairs: Pairs<Rule>, state: &mut State) -> Result<TinyLangType, TinyLangError> {
     let mut object = visit_identifier(pairs.next().unwrap(), state)?;
-    while let Some(p) = pairs.next() {
+    for p in pairs {
         object = match object {
-            TinyLangType::Object(ref mut s) => visit_identifier(p,s)?,
+            TinyLangType::Object(ref mut s) => visit_identifier(p, s)?,
             _ => return Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
         };
     }
@@ -477,7 +475,6 @@ mod test {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-
     #[test]
     fn test_dot_op() {
         let mut a_object = State::new();
@@ -485,7 +482,8 @@ mod test {
         let result = eval(
             "{{ a.b }}",
             HashMap::from([("a".into(), TinyLangType::Object(a_object))]),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!("3", result.as_str());
     }
 
@@ -496,7 +494,8 @@ mod test {
         let result = eval(
             "{{ 3 + a.b }}",
             HashMap::from([("a".into(), TinyLangType::Object(a_object))]),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!("6", result.as_str());
     }
 
@@ -509,7 +508,8 @@ mod test {
         let result = eval(
             "{{ a.b.b }}",
             HashMap::from([("a".into(), TinyLangType::Object(b_object))]),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!("3", result.as_str());
     }
 
@@ -520,7 +520,8 @@ mod test {
         let result = eval(
             "{{ a.b + a.b }}",
             HashMap::from([("a".into(), TinyLangType::Object(a_object))]),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!("6", result.as_str());
     }
 
@@ -713,9 +714,7 @@ mod test {
             "{{ f(1) }}",
             HashMap::from([(
                 "f".into(),
-                TinyLangType::Function(Arc::new(|args, _state| {
-                    args.get(0).unwrap().clone()
-                })),
+                TinyLangType::Function(Arc::new(|args, _state| args.get(0).unwrap().clone())),
             )]),
         )
         .unwrap();
@@ -729,9 +728,7 @@ mod test {
             "{% f(1) %}",
             HashMap::from([(
                 "f".into(),
-                TinyLangType::Function(Arc::new(|args, _state| {
-                    args.get(0).unwrap().clone()
-                })),
+                TinyLangType::Function(Arc::new(|args, _state| args.get(0).unwrap().clone())),
             )]),
         )
         .unwrap();

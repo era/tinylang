@@ -182,18 +182,15 @@ impl From<State> for TinyLangType {
     }
 }
 
-
 #[cfg(test)]
 mod test {
+    use super::*;
     use std::sync::Mutex;
     use std::thread;
-    use super::*;
 
     #[test]
     fn test_if_state_is_send_sync() {
         let state = Arc::new(Mutex::new(State::new()));
-        thread::spawn(move || {
-            state
-        });
+        thread::spawn(move || state);
     }
 }
