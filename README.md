@@ -1,8 +1,7 @@
 # TinyLang
 
-TinyLang is a simple template language done while streaming at twitch with @Karreiro.
-
-It's a simple tree-walk interpreter.
+TinyLang is a simple template language done while streaming at twitch with @Karreiro. It's a simple 
+tree-walk interpreter.
 
 One of the design decisions is that you cannot assign new values to variables 
 inside the template file. So you cannot write something like `{% a = 2 %}`, you
