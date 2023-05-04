@@ -32,7 +32,7 @@ WIP
 
 Anything not inside `{{ }}` (print statement) and `{% %}` (dynamic statement) will be in the output.
 
-The language support:
+The language supports:
 
 Numbers (integers and floats), String (e.g. `'a string'`), bool (`true` and `false`).
 
