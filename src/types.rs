@@ -182,6 +182,12 @@ impl From<State> for TinyLangType {
     }
 }
 
+impl From<Vec<TinyLangType>> for TinyLangType {
+    fn from(val: Vec<TinyLangType>) -> Self {
+        Self::Vec(Arc::new(val))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -38,7 +38,7 @@ Numbers (integers and floats), String (e.g. `'a string'`), bool (`true` and `fal
 
 It's possible to use Vectors (`Vec<TinyLangType>`) and Objects (a variable with a `HashMap<String, TinyLangType>`),
 but it's not possible to construct them inside a template file. It's only possible to create
-those types on the Rust side. You can check the examples on how to use the language on the UnitTests at [parser.rs](https://github.com/era/tinylang/blob/master/src/parser.rs#L474)
+those types on the Rust side. You can check the examples on how to use the language on the UnitTests at tests/examples.rs . 
 
 ## Using as a library
 

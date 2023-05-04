@@ -4,6 +4,7 @@ use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::vec::IntoIter;
 
 use crate::errors::{ParseError, RuntimeError, TinyLangError};
 use crate::types::{State, TinyLangType};
@@ -66,39 +67,41 @@ impl Runtime<'_> {
 }
 
 struct Loop<'a> {
-    variable_name: Cow<'a, str>,
-    current_pos: usize,
-    original_value: Arc<Vec<TinyLangType>>,
+    variable_name: String,
+    vector: IntoIter<TinyLangType>,
     pairs: Vec<Pair<'a, Rule>>,
     old_state_for_var: TinyLangType,
 }
 
 impl Loop<'_> {
-    /// checks if the loop is still valid
-    /// for example if we are looping throught [1,2,3]
-    /// when we get to current_pos == 2 we are done and
-    /// should not try to replay the loop again
-    pub fn still_valid(&self) -> bool {
-        self.current_pos < self.original_value.len()
+    fn new(
+        variable_name: String,
+        original_value: Vec<TinyLangType>,
+        old_state_for_var: TinyLangType,
+    ) -> Self {
+        Self {
+            vector: original_value.into_iter(),
+            pairs: Vec::new(),
+            old_state_for_var,
+            variable_name,
+        }
     }
 
-    /// returns the next value and also increment the current_pos to one
-    /// must be called only after checking that the value is still valid (`self.still_valid()`)
-    pub fn next(&mut self) -> TinyLangType {
-        let next = self.original_value.get(self.current_pos);
-        self.current_pos += 1;
-        match next {
-            Some(n) => n.clone(),
-            None => TinyLangType::Nil,
-        }
+    fn still_valid(&self) -> bool {
+        self.vector.len() > 0
+    }
+
+    fn next(&mut self) -> Option<TinyLangType> {
+        self.vector.next()
     }
 
     fn replay_loop<'a>(mut self, state: &mut State) -> Result<Cow<'a, str>, TinyLangError> {
         let mut output = String::new();
         self.pairs.remove(0);
         let mut runtime = Runtime::new();
-        while self.still_valid() {
-            state.insert(self.variable_name.to_string(), self.next());
+
+        for item in self.vector {
+            state.insert(self.variable_name.to_string(), item);
 
             for pair in &self.pairs {
                 output.push_str(&process_pair(pair.clone(), state, &mut runtime)?);
@@ -108,6 +111,7 @@ impl Loop<'_> {
         Ok(output.into())
     }
 }
+
 /// eval receives the &str to parse and the State.
 /// You should put in the State any function or variable that your templates
 /// should have access to.
@@ -295,15 +299,17 @@ fn visit_for<'a>(
         (_, false) => return Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
         (_, true) => Arc::new(Vec::new()),
     };
-    let mut loop_struct = Loop {
-        current_pos: 0,
-        pairs: Vec::new(),
-        original_value,
-        variable_name: identifier_name.into(),
-        old_state_for_var: identifier,
-    };
 
-    state.insert(loop_struct.variable_name.to_string(), loop_struct.next());
+    let mut loop_struct = Loop::new(
+        identifier_name.into(),
+        (*original_value).clone(),
+        identifier,
+    );
+
+    state.insert(
+        identifier_name.to_string(),
+        loop_struct.next().unwrap_or(TinyLangType::Nil),
+    );
 
     Ok(loop_struct)
 }
