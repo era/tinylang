@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::sync::Arc;
 
 pub type FuncArguments = Vec<TinyLangType>;
 pub type Function = fn(FuncArguments, &HashMap<String, TinyLangType>) -> TinyLangType;
@@ -23,10 +22,10 @@ pub enum TinyLangType {
     /// anything use the TinyLangTypes::Nil type.
     /// Users cannot declare functions inside the template file.
     /// The function also receives the global state
-    Function(Arc<Function>),
+    Function(Function),
     /// Represents a Vector to be iterated using the for loop
     /// it cannot be created inside the template file.
-    Vec(Arc<Vec<TinyLangType>>),
+    Vec(Vec<TinyLangType>),
     /// Each instance of an object has their own "vtable"
     Object(State),
     Nil,
@@ -184,7 +183,7 @@ impl From<State> for TinyLangType {
 
 impl From<Vec<TinyLangType>> for TinyLangType {
     fn from(val: Vec<TinyLangType>) -> Self {
-        Self::Vec(Arc::new(val))
+        Self::Vec(val)
     }
 }
 
@@ -196,7 +195,7 @@ mod test {
 
     #[test]
     fn test_if_state_is_send_sync() {
-        let state = Arc::new(Mutex::new(State::new()));
+        let state = Mutex::new(State::new());
         thread::spawn(move || state);
     }
 }

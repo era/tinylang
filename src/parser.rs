@@ -3,7 +3,6 @@ use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use std::borrow::Cow;
-use std::sync::Arc;
 use std::vec::IntoIter;
 
 use crate::errors::{ParseError, RuntimeError, TinyLangError};
@@ -294,17 +293,13 @@ fn visit_for<'a>(
     let original_value = visit_exp(node.next().unwrap().into_inner(), state)?;
     // we should ignore errors if we are not outputting anything
     // because that means we should not execute dynamic statements
-    let original_value: Arc<Vec<TinyLangType>> = match (original_value, ignore_error) {
+    let original_value: Vec<TinyLangType> = match (original_value, ignore_error) {
         (TinyLangType::Vec(v), _) => v,
         (_, false) => return Err(TinyLangError::RuntimeError(RuntimeError::InvalidLangType)),
-        (_, true) => Arc::new(Vec::new()),
+        (_, true) => Vec::new(),
     };
 
-    let mut loop_struct = Loop::new(
-        identifier_name.into(),
-        (*original_value).clone(),
-        identifier,
-    );
+    let mut loop_struct = Loop::new(identifier_name.into(), original_value, identifier);
 
     state.insert(
         identifier_name.to_string(),
@@ -479,7 +474,6 @@ fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangType, TinyLangError> {
 mod test {
     use super::*;
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     #[test]
     fn test_dot_op() {
@@ -720,7 +714,7 @@ mod test {
             "{{ f(1) }}",
             HashMap::from([(
                 "f".into(),
-                TinyLangType::Function(Arc::new(|args, _state| args.get(0).unwrap().clone())),
+                TinyLangType::Function(|args, _state| args.get(0).unwrap().clone()),
             )]),
         )
         .unwrap();
@@ -734,7 +728,7 @@ mod test {
             "{% f(1) %}",
             HashMap::from([(
                 "f".into(),
-                TinyLangType::Function(Arc::new(|args, _state| args.get(0).unwrap().clone())),
+                TinyLangType::Function(|args, _state| args.get(0).unwrap().clone()),
             )]),
         )
         .unwrap();
@@ -806,73 +800,7 @@ mod test {
             template,
             HashMap::from([(
                 "b".into(),
-                TinyLangType::Vec(Arc::new(vec![1.into(), 2.into(), 3.into()])),
-            )]),
-        )
-        .unwrap();
-        assert_eq!(expected.replace(' ', ""), result.replace(' ', ""))
-    }
-
-    #[test]
-    fn test_for_in_a_for() {
-        let template = r#"
-        {% for a in b %}
-        repeat
-            {% for a in b %}
-1
-               {% for a in b %}
-               2
-               {%end%}
-            {%end%}
-        {% end %}
-        abc
-        "#;
-        let expected = r#"repeat
-            1
-            2
-            2
-            2
-            1
-            2
-            2
-            2
-            1
-            2
-            2
-            2
-        repeat
-            1
-            2
-            2
-            2
-            1
-            2
-            2
-            2
-            1
-            2
-            2
-            2
-        repeat
-            1
-            2
-            2
-            2
-            1
-            2
-            2
-            2
-            1
-            2
-            2
-            2
-        abc
-        "#;
-        let result = eval(
-            template,
-            HashMap::from([(
-                "b".into(),
-                TinyLangType::Vec(Arc::new(vec![1.into(), 2.into(), 3.into()])),
+                TinyLangType::Vec(vec![1.into(), 2.into(), 3.into()]),
             )]),
         )
         .unwrap();

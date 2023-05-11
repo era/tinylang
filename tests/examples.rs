@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use tinylang::eval;
 use tinylang::types::{FuncArguments, State, TinyLangType};
 
@@ -30,9 +29,9 @@ fn print_statement() {
             "{{ a() }}",
             HashMap::from([(
                 "a".into(),
-                TinyLangType::Function(Arc::new(|_args: FuncArguments, _state: &State| {
+                TinyLangType::Function(|_args: FuncArguments, _state: &State| {
                     "this is the value".into()
-                }))
+                })
             )])
         )
         .unwrap(),
