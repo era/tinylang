@@ -2,7 +2,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::sync::Arc;
 use tinylang::eval;
 use tinylang::types::TinyLangType;
 
@@ -23,7 +22,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut state = HashMap::default();
     state.insert(
         "items".into(),
-        TinyLangType::Vec(Arc::new(vec!["a".into(), "b".into(), "c".into()])),
+        TinyLangType::Vec(vec!["a".into(), "b".into(), "c".into()]),
     );
 
     c.bench_function("basic_template_parse", move |b| {

@@ -3,8 +3,6 @@ use crate::types::TinyLangType;
 use gloo_utils::format::JsValueSerdeExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
-use wasm_bindgen::intern;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -17,36 +15,47 @@ pub enum InternalType {
 
 #[derive(Serialize, Deserialize)]
 pub struct JsType {
+    pub name: String,
     pub value: String,
     pub internal_type: InternalType,
 }
 
-fn parse_js(val: JsType) -> Result<TinyLangType, &'static str> {
-    match val.internal_type {
+fn parse_js(internal_type: InternalType, val: String) -> Result<TinyLangType, &'static str> {
+    match internal_type {
         InternalType::Numeric => Ok(TinyLangType::Numeric(
-            val.value.parse::<f64>().map_err(|_| "Invalid Number")?,
+            val.parse::<f64>().map_err(|_| "Invalid Number")?,
         )),
-        InternalType::String => Ok(TinyLangType::String(val.value)),
+        InternalType::String => Ok(TinyLangType::String(val)),
         InternalType::Vec => {
             let mut tinylang_vector = Vec::new();
             let internal_vector: Vec<JsType> =
-                serde_json::from_str(&val.value).map_err(|_| "Invalid Vector")?;
+                serde_json::from_str(&val).map_err(|_| "Invalid Vector")?;
             for internal_element in internal_vector {
-                tinylang_vector.push(parse_js(internal_element)?);
+                tinylang_vector.push(parse_js(
+                    internal_element.internal_type,
+                    internal_element.value,
+                )?);
             }
-            Ok(TinyLangType::Vec(Arc::new(tinylang_vector)))
+            Ok(TinyLangType::Vec(tinylang_vector))
         }
     }
 }
 
 #[wasm_bindgen]
 pub fn eval_wasm(input: &str, state: JsValue) -> String {
-    let js_state: Vec<(String, JsType)> = state.into_serde().unwrap();
+    let js_state: Vec<JsType> = match state
+        .into_serde()
+        .map_err(|e| format!("could not transform the state into TinyLang object {:?}", e))
+    {
+        Ok(v) => v,
+        Err(e) => return e.to_string(),
+    };
+
     let mut state = HashMap::new();
 
-    for (var_name, var_value) in js_state {
-        match parse_js(var_value) {
-            Ok(v) => state.insert(var_name, v),
+    for var in js_state {
+        match parse_js(var.internal_type, var.value) {
+            Ok(v) => state.insert(var.name, v),
             Err(e) => return e.to_string(),
         };
     }
