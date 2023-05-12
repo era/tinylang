@@ -14,7 +14,7 @@ pub enum InternalType {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct JsType {
+pub struct JsTinyLangType {
     pub name: String,
     pub value: String,
     pub internal_type: InternalType,
@@ -28,7 +28,7 @@ fn parse_js(internal_type: InternalType, val: String) -> Result<TinyLangType, &'
         InternalType::String => Ok(TinyLangType::String(val)),
         InternalType::Vec => {
             let mut tinylang_vector = Vec::new();
-            let internal_vector: Vec<JsType> =
+            let internal_vector: Vec<JsTinyLangType> =
                 serde_json::from_str(&val).map_err(|_| "Invalid Vector")?;
             for internal_element in internal_vector {
                 tinylang_vector.push(parse_js(
@@ -43,7 +43,7 @@ fn parse_js(internal_type: InternalType, val: String) -> Result<TinyLangType, &'
 
 #[wasm_bindgen]
 pub fn eval_wasm(input: &str, state: JsValue) -> String {
-    let js_state: Vec<JsType> = match state
+    let js_state: Vec<JsTinyLangType> = match state
         .into_serde()
         .map_err(|e| format!("could not transform the state into TinyLang object {:?}", e))
     {
