@@ -35,6 +35,6 @@ flow = _{ flow_if | flow_else | flow_for | flow_end }
 function_call = { identifier ~ "(" ~ (exp ~ ("," ~ exp)*)? ~ ")" }
 dynamic = { "{%" ~ WHITESPACE* ~ (flow | exp) ~ WHITESPACE* ~ "%}" }
 print = { "{{" ~ WHITESPACE* ~ exp ~ WHITESPACE* ~ "}}"}
-html = { !("{{" | "{%") ~ NON_SILENT_WHITESPACE* ~ ANY ~ NON_SILENT_WHITESPACE* }
+html = { (ANY ~ (!("{{" | "{%") ~ ANY)*) ~ NON_SILENT_WHITESPACE* }
 invalid = { ("{{" | "{%") ~ ANY* }
 g = { (NEWLINE |dynamic | print | invalid | html)* }
