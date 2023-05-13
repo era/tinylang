@@ -10,7 +10,6 @@ which does assign and create a new variable to be used inside the template.
 
 ## State 
 
-WIP
 
 | Feature      | State | Syntax |
 | ----------- | ----------- | ----------- |
