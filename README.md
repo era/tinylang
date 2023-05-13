@@ -23,9 +23,8 @@ which does assign and create a new variable to be used inside the template.
 | function calls   | ✅        | `my_function('abc')`|
 | Dot operator   | ✅       | `something.something_else`|
 
-### Other things missing
+### Missing
 
-- Benchmarks
 - Documentation
 
 ## Examples
