@@ -68,6 +68,7 @@ impl Runtime<'_> {
 struct Loop<'a> {
     variable_name: String,
     vector: IntoIter<TinyLangType>,
+    was_empty: bool,
     pairs: Vec<Pair<'a, Rule>>,
     old_state_for_var: TinyLangType,
 }
@@ -78,7 +79,9 @@ impl Loop<'_> {
         original_value: Vec<TinyLangType>,
         old_state_for_var: TinyLangType,
     ) -> Self {
+        let is_empty = original_value.is_empty();
         Self {
+            was_empty: is_empty,
             vector: original_value.into_iter(),
             pairs: Vec::new(),
             old_state_for_var,
@@ -253,16 +256,16 @@ fn visit_dynamic<'a>(
                 }
             }
             (Rule::flow_for, true) => {
-                let for_loop = visit_for(dynamic.into_inner(), state, true)?;
+                let for_loop = visit_for(dynamic.into_inner(), state, false)?;
                 runtime.needs_end.push(Rule::flow_for);
-                runtime.should_output.push(for_loop.still_valid());
+                runtime.should_output.push(!for_loop.was_empty);
                 runtime.loops.push(for_loop);
             }
             (Rule::flow_for, false) => {
                 // if we are not outputting the value, it means we are inside a if false { HERE }
                 // if that is the case, we should not halt the execution due to errors on the type of the loop
                 // since it's likely the user did something like if myvar != Nil { for a in myvar {} }
-                let for_loop = visit_for(dynamic.into_inner(), state, false)?;
+                let for_loop = visit_for(dynamic.into_inner(), state, true)?;
                 runtime.needs_end.push(Rule::flow_for);
                 // we should keep not outputting
                 runtime.should_output.push(false);
@@ -816,6 +819,51 @@ mod test {
                 "b".into(),
                 TinyLangType::Vec(vec![1.into(), 2.into(), 3.into()]),
             )]),
+        )
+        .unwrap();
+        assert_eq!(expected.replace(' ', ""), result.replace(' ', ""))
+    }
+
+    #[test]
+    fn test_for_single_item() {
+        let template = r#"
+        {% for a in b %}
+        repeat
+        {{a}}
+        {% end %}
+        abc
+        "#;
+        let expected = r#"
+
+        repeat
+        1
+
+        abc
+        "#;
+        let result = eval(
+            template,
+            HashMap::from([("b".into(), TinyLangType::Vec(vec![1.into()]))]),
+        )
+        .unwrap();
+        assert_eq!(expected.replace(' ', ""), result.replace(' ', ""))
+    }
+
+    #[test]
+    fn test_for_single_empty() {
+        let template = r#"
+        {% for a in b %}
+        repeat
+        {{a}}
+        {% end %}
+        abc
+        "#;
+        let expected = r#"
+
+        abc
+        "#;
+        let result = eval(
+            template,
+            HashMap::from([("b".into(), TinyLangType::Vec(vec![]))]),
         )
         .unwrap();
         assert_eq!(expected.replace(' ', ""), result.replace(' ', ""))
