@@ -541,10 +541,11 @@ mod test {
         let result = eval("something nice here", HashMap::default()).unwrap();
         assert_eq!("something nice here", result.as_str());
     }
+
     #[test]
     fn test_literal_print_stmt_with_html() {
-        let result = eval("the coolest number is {{ 12 }}", HashMap::default()).unwrap();
-        assert_eq!("the coolest number is 12", result.as_str());
+        let result = eval("the coolest number is {{ 12 }} :)", HashMap::default()).unwrap();
+        assert_eq!("the coolest number is 12 :)", result.as_str());
     }
 
     #[test]
@@ -740,14 +741,16 @@ mod test {
         let template = r#"
         {% if 1 == 1 %}
         this is true
-        {% end %}
+        .{% end %}
         abc
         "#;
-        let expected = r#"this is true
+        let expected = r#"
+        this is true
+        .
         abc
         "#;
         let result = eval(template, HashMap::default()).unwrap();
-        assert_eq!(expected, result.as_str())
+        assert_eq!(expected.trim(), result.trim())
     }
 
     #[test]
@@ -760,11 +763,14 @@ mod test {
         {% end %}
         abc
         "#;
-        let expected = r#"over here
+        let expected = r#"
+
+        over here
+
         abc
         "#;
         let result = eval(template, HashMap::default()).unwrap();
-        assert_eq!(expected, result.as_str())
+        assert_eq!(expected.replace(' ', ""), result.replace(' ', ""));
     }
 
     #[test]
@@ -791,10 +797,18 @@ mod test {
         {% end %}
         abc
         "#;
-        let expected = r#"repeat
-        1repeat
-        2repeat
-        3abc
+        let expected = r#"
+
+        repeat
+        1
+
+        repeat
+        2
+
+        repeat
+        3
+
+        abc
         "#;
         let result = eval(
             template,

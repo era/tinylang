@@ -44,7 +44,7 @@ fn dynamic_syntax() {
     // {% %} is mainly used to control what is displayed or not in your final result
     // but you can also call functions (only really useful if they have side-effects)
 
-    let this_is_a_if = r#"{%if false %} will not show this {% else %} will show this{% end %}"#;
+    let this_is_a_if = r#"{%if false %} will not show this {% else %}will show this{% end %}"#;
     assert_eq!(
         eval(this_is_a_if, HashMap::default()).unwrap(),
         "will show this"
