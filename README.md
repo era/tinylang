@@ -49,4 +49,8 @@ You can also try it out at: https://tinylang.elias.tools
 ## Posts
 - https://www.elias.sh/posts/peg_and_rust.html
 
+## Acknowledges
+
+Thank you @Karreiro for the pair-programming on Twitch. 
+
 
