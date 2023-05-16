@@ -1,7 +1,6 @@
 # TinyLang
 
-TinyLang is a simple template language done while streaming at twitch with @Karreiro. It's a simple 
-tree-walk interpreter.
+TinyLang is a template language build as a simple tree-walk interpreter using PEST.
 
 One of the design decisions is that you cannot assign new values to variables 
 inside the template file. So you cannot write something like `{% a = 2 %}`, you
@@ -46,5 +45,8 @@ the parsed string or an error.
 
 
 You can also try it out at: https://tinylang.elias.tools
+
+## Posts
+- https://www.elias.sh/posts/peg_and_rust.html
 
 
