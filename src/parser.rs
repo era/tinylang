@@ -89,10 +89,6 @@ impl Loop<'_> {
         }
     }
 
-    fn still_valid(&self) -> bool {
-        self.vector.len() > 0
-    }
-
     fn next(&mut self) -> Option<TinyLangType> {
         self.vector.next()
     }
