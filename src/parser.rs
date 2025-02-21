@@ -438,15 +438,10 @@ fn visit_logical_op(
 }
 
 fn visit_literal(node: Pairs<Rule>) -> Result<TinyLangType, TinyLangError> {
-    let child = match node.into_iter().next() {
-        Some(child) => child,
-        None => {
-            return Err(ParseError::InvalidNode(
-                "visit_lang_types was called with an empty node".to_string(),
-            )
-            .into())
-        }
-    };
+    let child = node.into_iter().next().ok_or(ParseError::InvalidNode(
+        "visit_lang_types was called with an empty node".to_string(),
+    ))?;
+
     match child.as_rule() {
         // cannot fail given our grammar (well, this can still fail
         // because it could be a huge number, but let's ignore this for
