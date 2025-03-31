@@ -1,7 +1,10 @@
 [package]
 name = "tinylang"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
+license = "MIT"
+homepage = "https://tinylang.elias.tools/"
+description = "TinyLang is a template language build as a simple tree-walk interpreter using PEST."
 
 [features]
 webassembly = ["dep:wasm-bindgen", "dep:gloo-utils"]
