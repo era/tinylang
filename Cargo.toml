@@ -13,7 +13,6 @@ webassembly = ["dep:wasm-bindgen", "dep:gloo-utils"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-once_cell = "1.21.1"
 pest = "2.7"
 pest_derive = "2.8"
 serde = { version = "1.0.219", features = ["derive"] }

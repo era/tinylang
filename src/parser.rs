@@ -1,8 +1,8 @@
-use once_cell::sync::Lazy;
 use pest::iterators::{Pair, Pairs};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest::Parser;
 use std::borrow::Cow;
+use std::sync::LazyLock;
 use std::vec::IntoIter;
 
 use crate::errors::{ParseError, RuntimeError, TinyLangError};
@@ -16,7 +16,7 @@ const EMPTY_STRING_COW: Cow<str> = Cow::Borrowed("");
 
 // explanation on Pratt parsers in Rust:
 // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
-static PRATT_PARSER_OP_EXP: Lazy<PrattParser<Rule>> = Lazy::new(|| {
+static PRATT_PARSER_OP_EXP: LazyLock<PrattParser<Rule>> = LazyLock::new(|| {
     PrattParser::new()
         .op(Op::infix(Rule::op_and, Assoc::Left) | Op::infix(Rule::op_or, Assoc::Left))
         .op(Op::infix(Rule::op_eq, Assoc::Left)

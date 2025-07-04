@@ -576,7 +576,6 @@ version = "0.3.0"
 dependencies = [
  "criterion",
  "gloo-utils",
- "once_cell",
  "pest",
  "pest_derive",
  "serde",
