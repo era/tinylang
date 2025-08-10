@@ -3,21 +3,9 @@ use thiserror::Error;
 #[derive(Debug, Error, PartialEq)]
 pub enum TinyLangError {
     #[error("parser error {0:?}")]
-    ParserError(ParseError),
+    ParserError(#[from] ParseError),
     #[error("runtime error {0:?}")]
-    RuntimeError(RuntimeError),
-}
-
-impl From<ParseError> for TinyLangError {
-    fn from(value: ParseError) -> Self {
-        TinyLangError::ParserError(value)
-    }
-}
-
-impl From<RuntimeError> for TinyLangError {
-    fn from(value: RuntimeError) -> Self {
-        TinyLangError::RuntimeError(value)
-    }
+    RuntimeError(#[from] RuntimeError),
 }
 
 #[derive(Debug, Error, PartialEq)]
