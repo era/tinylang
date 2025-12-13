@@ -203,7 +203,7 @@ fn visit_generic<'a>(
     Ok(ParseState::Static(current_output))
 }
 
-fn parse(input: &str) -> Result<Pairs<Rule>, ParseError> {
+fn parse(input: &str) -> Result<Pairs<'_, Rule>, ParseError> {
     // this is G which contains children which are
     // either html chars, print statements or dynamic statements
     TemplateLangParser::parse(Rule::g, input).map_err(|e| ParseError::Generic(e.to_string()))
