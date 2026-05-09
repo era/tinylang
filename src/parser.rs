@@ -60,8 +60,7 @@ impl Runtime<'_> {
     }
 
     pub fn is_output_enabled(&self) -> bool {
-        (!self.should_output.is_empty() && *(self.should_output.last().unwrap()))
-            || self.should_output.is_empty()
+        self.should_output.last().copied().unwrap_or(true)
     }
 }
 
@@ -93,19 +92,24 @@ impl Loop<'_> {
         self.vector.next()
     }
 
-    fn replay_loop<'a>(mut self, state: &mut State) -> Result<Cow<'a, str>, TinyLangError> {
+    fn replay_loop<'a>(self, state: &mut State) -> Result<Cow<'a, str>, TinyLangError> {
         let mut output = String::new();
-        self.pairs.remove(0);
         let mut runtime = Runtime::new();
+        let Loop { variable_name, vector, pairs, old_state_for_var, .. } = self;
 
-        for item in self.vector {
-            state.insert(self.variable_name.to_string(), item);
-
-            for pair in &self.pairs {
+        for item in vector {
+            *state.get_mut(variable_name.as_str()).unwrap() = item;
+            for pair in &pairs[1..] {
+                if matches!(pair.as_rule(), Rule::html | Rule::print)
+                    && !runtime.is_output_enabled()
+                    && runtime.loops.is_empty()
+                {
+                    continue;
+                }
                 output.push_str(&process_pair(pair.clone(), state, &mut runtime)?);
             }
         }
-        state.insert(self.variable_name.to_string(), self.old_state_for_var);
+        state.insert(variable_name, old_state_for_var);
         Ok(output.into())
     }
 }
@@ -130,6 +134,12 @@ pub fn eval(input: &str, mut state: State) -> Result<String, TinyLangError> {
     let mut runtime = Runtime::new();
 
     for pair in pairs {
+        if matches!(pair.as_rule(), Rule::html | Rule::print)
+            && !runtime.is_output_enabled()
+            && runtime.loops.is_empty()
+        {
+            continue;
+        }
         output.push_str(&process_pair(pair, &mut state, &mut runtime)?);
     }
 
