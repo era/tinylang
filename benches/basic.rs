@@ -1,52 +1,90 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::Read;
+use std::fs;
+use std::hint::black_box;
 use tinylang::eval;
 use tinylang::types::TinyLangType;
 
-static TEMPLATE: &str = "benches/for.template";
-static TEMPLATE_NO_FOR: &str = "benches/no_vars.template";
-static TEMPLATE_IF_FALSE: &str = "benches/a_lot_of_no_output.template";
+fn bench_simple(c: &mut Criterion) {
+    let mut group = c.benchmark_group("simple");
 
-fn read_file_to_string(file_path: &str) -> Result<String, std::io::Error> {
-    let mut file = File::open(file_path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
+    let static_html = "<html><body><h1>Hello, World!</h1><p>Some content here.</p></body></html>";
+    group.throughput(Throughput::Bytes(static_html.len() as u64));
+    group.bench_function("static_html", |b| {
+        b.iter(|| eval(black_box(static_html), HashMap::default()))
+    });
+
+    let single_var = "Hello, {{ name }}!";
+    let state_var = HashMap::from([("name".into(), TinyLangType::String("World".into()))]);
+    group.throughput(Throughput::Bytes(single_var.len() as u64));
+    group.bench_function("single_var", |b| {
+        b.iter_batched(
+            || state_var.clone(),
+            |s| eval(black_box(single_var), s),
+            BatchSize::SmallInput,
+        )
+    });
+
+    let math = "{{ 1 + 2 * 3 / 4 - 1 }}";
+    group.throughput(Throughput::Bytes(math.len() as u64));
+    group.bench_function("math_expr", |b| {
+        b.iter(|| eval(black_box(math), HashMap::default()))
+    });
+
+    let if_true = "{% if 1 == 1 %}yes{% end %}";
+    group.throughput(Throughput::Bytes(if_true.len() as u64));
+    group.bench_function("if_true", |b| {
+        b.iter(|| eval(black_box(if_true), HashMap::default()))
+    });
+
+    let if_false = "{% if 1 != 1 %}yes{% end %}";
+    group.throughput(Throughput::Bytes(if_false.len() as u64));
+    group.bench_function("if_false", |b| {
+        b.iter(|| eval(black_box(if_false), HashMap::default()))
+    });
+
+    group.finish();
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
-    let template = read_file_to_string(TEMPLATE).unwrap();
-    let template_str = template.as_str();
-    let mut state = HashMap::default();
-    state.insert(
+fn bench_no_state(c: &mut Criterion) {
+    let no_vars = fs::read_to_string("benches/no_vars.template").unwrap();
+    let if_all_false = fs::read_to_string("benches/a_lot_of_no_output.template").unwrap();
+
+    let mut group = c.benchmark_group("no_state");
+
+    group.throughput(Throughput::Bytes(no_vars.len() as u64));
+    group.bench_function("no_vars", |b| {
+        b.iter(|| eval(black_box(&no_vars), HashMap::default()))
+    });
+
+    group.throughput(Throughput::Bytes(if_all_false.len() as u64));
+    group.bench_function("if_all_false", |b| {
+        b.iter(|| eval(black_box(&if_all_false), HashMap::default()))
+    });
+
+    group.finish();
+}
+
+fn bench_with_state(c: &mut Criterion) {
+    let template = fs::read_to_string("benches/for.template").unwrap();
+    let state = HashMap::from([(
         "items".into(),
         TinyLangType::Vec(vec!["a".into(), "b".into(), "c".into()]),
-    );
+    )]);
 
-    c.bench_function("basic_template_parse", move |b| {
-        let state = state.clone();
-        b.iter(move || {
-            let state_cloned = state.clone();
-            eval(black_box(template_str), black_box(state_cloned))
-        });
+    let mut group = c.benchmark_group("with_state");
+
+    group.throughput(Throughput::Bytes(template.len() as u64));
+    group.bench_function("nested_for_if", |b| {
+        b.iter_batched(
+            || state.clone(),
+            |s| eval(black_box(&template), s),
+            BatchSize::SmallInput,
+        )
     });
 
-    let template = read_file_to_string(TEMPLATE_NO_FOR).unwrap();
-    let template_str = template.as_str();
-
-    c.bench_function("basic_template_parse_no_state", move |b| {
-        b.iter(move || eval(black_box(template_str), black_box(HashMap::default())));
-    });
-
-    let template = read_file_to_string(TEMPLATE_IF_FALSE).unwrap();
-    let template_str = template.as_str();
-
-    c.bench_function("basic_template_parse_if_no_output", move |b| {
-        b.iter(move || eval(black_box(template_str), black_box(HashMap::default())));
-    });
+    group.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(benches, bench_simple, bench_no_state, bench_with_state);
 criterion_main!(benches);
